@@ -1,0 +1,169 @@
+services:
+  # ----------------------------------------------------------------------------
+  # 1. PostgreSQL 16 + TimescaleDB + pgvector
+  # ----------------------------------------------------------------------------
+  db:
+    image: timescale/timescaledb-ha:pg16
+    container_name: fmip_timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fmip_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fmip_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-fmip_intelligence}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - fmip_postgres_data:/home/postgres/pgdata/data
+      - ./docker/postgres/init-extensions.sql:/docker-entrypoint-initdb.d/01-init-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fmip_user} -d ${POSTGRES_DB:-fmip_intelligence}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fmip_network
+
+  # ----------------------------------------------------------------------------
+  # 2. Redis 7 (Caching, Rate Limiting & Background Task Queue)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: fmip_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - fmip_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fmip_network
+
+  # ----------------------------------------------------------------------------
+  # 3. FastAPI Backend & Multi-Agent Intelligence Engine
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+    container_name: fmip_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fmip_user}:${POSTGRES_PASSWORD:-fmip_dev_password}@db:5432/${POSTGRES_DB:-fmip_intelligence}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - ./storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fmip_network
+    profiles:
+      - full
+      - app
+
+  # ----------------------------------------------------------------------------
+  # 4. Redis-Backed Background Worker (Data Ingestion & Scheduled Agent Runs)
+  # ----------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+    container_name: fmip_worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.workers.runner"]
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fmip_user}:${POSTGRES_PASSWORD:-fmip_dev_password}@db:5432/${POSTGRES_DB:-fmip_intelligence}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+      - ./storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fmip_network
+    profiles:
+      - full
+      - app
+
+  # ----------------------------------------------------------------------------
+  # 5. Next.js Institutional Intelligence Dashboard
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend/Dockerfile
+    container_name: fmip_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:${BACKEND_PORT:-8000}/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - fmip_network
+    profiles:
+      - full
+      - app
+
+  # ----------------------------------------------------------------------------
+  # 6. n8n Workflow Automation (Daily Ingestion, Alerts & Friday Reports)
+  # ----------------------------------------------------------------------------
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: fmip_n8n
+    restart: unless-stopped
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      GENERIC_TIMEZONE: ${DEFAULT_TIMEZONE:-Africa/Lagos}
+      TZ: ${DEFAULT_TIMEZONE:-Africa/Lagos}
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-true}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-fmip_n8n_password}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-fmip_default_encryption_key_change_me}
+      WEBHOOK_URL: http://localhost:5678/
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    volumes:
+      - fmip_n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - fmip_network
+    profiles:
+      - full
+      - automation
+
+volumes:
+  fmip_postgres_data:
+  fmip_redis_data:
+  fmip_n8n_data:
+
+networks:
+  fmip_network:
+    driver: bridge
