@@ -11,7 +11,10 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+try:
+    from scipy import stats as _scipy_stats
+except ImportError:
+    _scipy_stats = None
 
 
 @dataclass
@@ -175,8 +178,8 @@ def compute_market_performance(
 
     # Value-at-Risk (1-day VaR expressed as positive loss percentage)
     mu_daily = float(daily_returns.mean())
-    z95 = stats.norm.ppf(0.05)
-    z99 = stats.norm.ppf(0.01)
+    z95 = float(_scipy_stats.norm.ppf(0.05)) if _scipy_stats is not None else -1.6448536269514729
+    z99 = float(_scipy_stats.norm.ppf(0.01)) if _scipy_stats is not None else -2.3263478740408408
     param_var_95 = round(max(0.0, -(mu_daily + z95 * daily_std) * 100.0), 4)
     param_var_99 = round(max(0.0, -(mu_daily + z99 * daily_std) * 100.0), 4)
     hist_var_95 = round(max(0.0, -float(np.percentile(daily_returns, 5)) * 100.0), 4)

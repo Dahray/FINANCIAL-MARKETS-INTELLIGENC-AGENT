@@ -116,16 +116,25 @@ class Settings(BaseSettings):
 
     @property
     def effective_database_url(self) -> str:
-        """Resolve effective SQLAlchemy database URL."""
+        """Resolve effective SQLAlchemy database URL using available PostgreSQL driver."""
+        driver = "postgresql+psycopg2"
+        try:
+            import psycopg2  # noqa: F401
+        except ImportError:
+            driver = "postgresql+psycopg"
+
         if self.DATABASE_URL and "CHANGE_ME" not in self.DATABASE_URL:
-            return self.DATABASE_URL
+            url = self.DATABASE_URL
+            if url.startswith("postgresql+psycopg://") and driver == "postgresql+psycopg2":
+                url = url.replace("postgresql+psycopg://", "postgresql+psycopg2://", 1)
+            return url
         pwd = (
             "fmip_dev_password"
             if "CHANGE_ME" in self.POSTGRES_PASSWORD
             else self.POSTGRES_PASSWORD
         )
         return (
-            f"postgresql+psycopg://{self.POSTGRES_USER}:{pwd}"
+            f"{driver}://{self.POSTGRES_USER}:{pwd}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 

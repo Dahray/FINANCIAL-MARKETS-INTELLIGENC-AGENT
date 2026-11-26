@@ -12,7 +12,6 @@ import math
 
 from fastapi.testclient import TestClient
 import numpy as np
-import pytest
 from sqlalchemy import create_engine, inspect
 
 from app.core.config import settings
@@ -319,3 +318,18 @@ def test_fastapi_phase2_endpoints() -> None:
         r_scen = client.get("/api/v1/macro/scenarios")
         assert r_scen.status_code == 200
         assert len(r_scen.json()["scenarios"]) == 4
+
+
+if __name__ == "__main__":
+    tests = [
+        test_all_18_orm_tables_registered_and_created,
+        test_security_password_hashing_and_prompt_injection_sanitizer,
+        test_data_quality_gate_deduplication_and_outlier_flagging,
+        test_financial_statement_extractor_never_fabricates_missing_metrics,
+        test_deterministic_quantitative_engine_calculations,
+        test_fastapi_phase2_endpoints,
+    ]
+    for fn in tests:
+        fn()
+        print(f"[PASS] {fn.__name__}")
+    print(f"\nALL {len(tests)} PHASE 2 TEST SUITES PASSED SUCCESSFULLY!")

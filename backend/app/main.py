@@ -10,7 +10,18 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.v1.endpoints import auth, macro, markets
+from app.api.v1.endpoints import (
+    assistant,
+    auth,
+    competitors,
+    macro,
+    markets,
+    opportunities,
+    overview,
+    regulatory,
+    reports,
+    webhooks,
+)
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.rate_limit import rate_limiter
@@ -74,10 +85,17 @@ async def rate_limit_middleware(request: Request, call_next):
     return response
 
 
-# Register v1 Routers
+# Register all 10 v1 Routers
 app.include_router(auth.router, prefix=settings.API_V1_STR)
+app.include_router(overview.router, prefix=settings.API_V1_STR)
 app.include_router(markets.router, prefix=settings.API_V1_STR)
 app.include_router(macro.router, prefix=settings.API_V1_STR)
+app.include_router(opportunities.router, prefix=settings.API_V1_STR)
+app.include_router(competitors.router, prefix=settings.API_V1_STR)
+app.include_router(regulatory.router, prefix=settings.API_V1_STR)
+app.include_router(reports.router, prefix=settings.API_V1_STR)
+app.include_router(assistant.router, prefix=settings.API_V1_STR)
+app.include_router(webhooks.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health", tags=["System Health"])

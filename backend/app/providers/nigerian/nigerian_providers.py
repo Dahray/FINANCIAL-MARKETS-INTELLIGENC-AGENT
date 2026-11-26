@@ -17,7 +17,10 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 import httpx
-from pypdf import PdfReader
+try:
+    from pypdf import PdfReader
+except ImportError:
+    from PyPDF2 import PdfReader  # type: ignore[no-redef]
 
 from app.core.config import settings
 from app.core.logging import get_logger

@@ -41,6 +41,7 @@ storage/reports/pdf/*.pdf
 storage/reports/excel/*.xlsx
 !storage/reports/pdf/.gitkeep
 !storage/reports/excel/.gitkeep
+storage/*.db
 postgres_data/
 redis_data/
 n8n_data/

@@ -10,7 +10,10 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Sequence
 
 import numpy as np
-from scipy.optimize import least_squares
+try:
+    from scipy.optimize import least_squares as _scipy_least_squares
+except ImportError:
+    _scipy_least_squares = None
 
 
 @dataclass
@@ -69,6 +72,39 @@ def _nelson_siegel_yield(
     return beta0 + beta1 * factor1 + beta2 * factor2
 
 
+def _fit_nelson_siegel_params(taus: np.ndarray, y_obs: np.ndarray) -> tuple[float, float, float, float]:
+    """Fit Nelson-Siegel parameters [beta0, beta1, beta2, lambda] via scipy or concentrated OLS grid."""
+    if _scipy_least_squares is not None:
+        init_guess = np.array([float(y_obs[-1]), float(y_obs[0] - y_obs[-1]), 0.0, 1.5])
+        bounds = ([-5.0, -30.0, -30.0, 0.1], [60.0, 30.0, 30.0, 15.0])
+
+        def residuals(params: np.ndarray) -> np.ndarray:
+            return _nelson_siegel_yield(taus, params[0], params[1], params[2], params[3]) - y_obs
+
+        res = _scipy_least_squares(residuals, init_guess, bounds=bounds)
+        return float(res.x[0]), float(res.x[1]), float(res.x[2]), float(res.x[3])
+
+    # Exact concentrated OLS search over lambda in [0.15, 10.0]
+    best_sse = float("inf")
+    best_params = (float(y_obs[-1]), float(y_obs[0] - y_obs[-1]), 0.0, 1.5)
+    tau_safe = np.maximum(taus, 1e-4)
+    for lam in np.linspace(0.15, 10.0, 200):
+        x = tau_safe / float(lam)
+        f1 = (1.0 - np.exp(-x)) / x
+        f2 = f1 - np.exp(-x)
+        X = np.column_stack([np.ones_like(tau_safe), f1, f2])
+        betas, _, _, _ = np.linalg.lstsq(X, y_obs, rcond=None)
+        b0 = float(np.clip(betas[0], -5.0, 60.0))
+        b1 = float(np.clip(betas[1], -30.0, 30.0))
+        b2 = float(np.clip(betas[2], -30.0, 30.0))
+        pred = _nelson_siegel_yield(taus, b0, b1, b2, float(lam))
+        sse = float(np.sum(np.square(pred - y_obs)))
+        if sse < best_sse:
+            best_sse = sse
+            best_params = (b0, b1, b2, float(lam))
+    return best_params
+
+
 def analyze_yield_curve(
     tenor_years: Sequence[float],
     yields_pct: Sequence[float],
@@ -86,15 +122,7 @@ def analyze_yield_curve(
     taus = np.asarray(tenor_years, dtype=float)[order]
     y_obs = np.asarray(yields_pct, dtype=float)[order]
 
-    # Fit Nelson-Siegel parameters [beta0, beta1, beta2, lambda]
-    init_guess = np.array([float(y_obs[-1]), float(y_obs[0] - y_obs[-1]), 0.0, 1.5])
-    bounds = ([-5.0, -30.0, -30.0, 0.1], [60.0, 30.0, 30.0, 15.0])
-
-    def residuals(params: np.ndarray) -> np.ndarray:
-        return _nelson_siegel_yield(taus, params[0], params[1], params[2], params[3]) - y_obs
-
-    res = least_squares(residuals, init_guess, bounds=bounds)
-    b0, b1, b2, lam = [float(v) for v in res.x]
+    b0, b1, b2, lam = _fit_nelson_siegel_params(taus, y_obs)
 
     fitted_obs = _nelson_siegel_yield(taus, b0, b1, b2, lam)
     fit_rmse_bps = round(float(np.sqrt(np.mean(np.square(fitted_obs - y_obs))) * 100.0), 2)
