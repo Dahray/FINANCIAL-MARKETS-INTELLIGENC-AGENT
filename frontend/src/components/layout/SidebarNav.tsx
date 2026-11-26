@@ -9,11 +9,14 @@ import {
   Bot,
   Building2,
   Compass,
+  Database,
   FileSpreadsheet,
   Globe2,
+  History,
   Scale,
   Settings,
   ShieldCheck,
+  Target,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -24,43 +27,67 @@ const NAV_ITEMS = [
     subtitle: "5 Strategic Questions & Pulse",
   },
   {
-    name: "2. Nigerian Markets",
+    name: "2. Data Accuracy Monitor",
+    href: "/data-accuracy",
+    icon: ShieldCheck,
+    subtitle: "Tier-1 Sources, Freshness & Diffs",
+  },
+  {
+    name: "3. Nigerian Markets",
     href: "/nigerian-markets",
     icon: BarChart3,
     subtitle: "NGX, FMDQ, NTB, Bonds & FX",
   },
   {
-    name: "3. Global Markets",
+    name: "4. Global Markets",
     href: "/global-markets",
     icon: Globe2,
     subtitle: "Equities, UST, FX & Commodities",
   },
   {
-    name: "4. Opportunity Radar",
+    name: "5. Historical & Scenarios",
+    href: "/historical-intelligence",
+    icon: History,
+    subtitle: "1W–1Y Diff, Stress Test & Graph",
+  },
+  {
+    name: "6. Forecast Accuracy",
+    href: "/forecast-accuracy",
+    icon: Target,
+    subtitle: "MAE, RMSE, MAPE & Outcomes",
+  },
+  {
+    name: "7. Research Memory & Log",
+    href: "/research-memory",
+    icon: Database,
+    subtitle: "Findings, Cases & Change Log",
+  },
+  {
+    name: "8. Opportunity Radar",
     href: "/opportunity-radar",
     icon: Compass,
     subtitle: "Investment & Business Theses",
   },
   {
-    name: "5. Competitive Intel",
+    name: "9. Competitive Intel",
     href: "/competitive-intelligence",
     icon: Building2,
     subtitle: "9 Industry Segments & Moves",
   },
   {
-    name: "6. Regulatory Monitor",
+    name: "10. Regulatory Monitor",
     href: "/regulatory-monitor",
     icon: Scale,
     subtitle: "CBN, SEC, PenCom & Citations",
   },
   {
-    name: "7. Research Reports",
+    name: "11. Research Reports",
     href: "/research-reports",
     icon: FileSpreadsheet,
     subtitle: "16-Section Friday Reports",
   },
   {
-    name: "8. AI Research Assistant",
+    name: "12. AI Research Assistant",
     href: "/ai-assistant",
     icon: Bot,
     subtitle: "Citation-Backed Executive Q&A",
@@ -69,9 +96,10 @@ const NAV_ITEMS = [
     name: "Automation & Settings",
     href: "/settings",
     icon: Settings,
-    subtitle: "n8n, Alerts & Data Providers",
+    subtitle: "n8n, Quotas & Data Providers",
   },
 ];
+
 
 export function SidebarNav() {
   const pathname = usePathname();

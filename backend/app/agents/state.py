@@ -15,9 +15,11 @@ class ResearchGraphState(TypedDict, total=False):
     period_start_iso: str
     period_end_iso: str
 
-    # Raw verified database snapshots & valid citation registry
+    # Raw verified database snapshots, historical comparison context & valid citation registry
     source_register_ledger: List[Dict[str, Any]]
     valid_source_ids: List[str]
+    weekly_comparison_context: Dict[str, Any]
+
 
     # Immutable Deterministic Python Outputs from Agent 6 (Quantitative Analysis Agent)
     agent_6_quant_output: Dict[str, Any]

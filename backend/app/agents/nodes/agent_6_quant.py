@@ -167,7 +167,7 @@ def run_agent_6_quant(state: ResearchGraphState, db: Session) -> ResearchGraphSt
     for spec in FORECAST_TARGETS:
         code = spec["code"]
         if spec["source_table"] == "macro":
-            rows_m = (
+            all_rows_m = (
                 db.execute(
                     select(MacroIndicator)
                     .where(MacroIndicator.indicator_code == code)
@@ -176,13 +176,15 @@ def run_agent_6_quant(state: ResearchGraphState, db: Session) -> ResearchGraphSt
                 .scalars()
                 .all()
             )
-            if len(rows_m) < 10:
+            live_m = [r for r in all_rows_m if not r.is_archival_baseline]
+            rows_m = live_m if len(live_m) >= 6 else all_rows_m
+            if len(rows_m) < 6:
                 continue
-            dates = [r.publication_date for r in rows_m]
+            dates = [r.effective_date or r.publication_date for r in rows_m]
             vals = [float(r.value) for r in rows_m]
             unit = rows_m[-1].currency_or_unit
         else:
-            rows_t = (
+            all_rows_t = (
                 db.execute(
                     select(MarketTimeseries)
                     .where(MarketTimeseries.symbol == code)
@@ -191,9 +193,11 @@ def run_agent_6_quant(state: ResearchGraphState, db: Session) -> ResearchGraphSt
                 .scalars()
                 .all()
             )
-            if len(rows_t) < 10:
+            live_t = [r for r in all_rows_t if not r.is_archival_baseline]
+            rows_t = live_t if len(live_t) >= 6 else all_rows_t
+            if len(rows_t) < 6:
                 continue
-            dates = [r.publication_date for r in rows_t]
+            dates = [r.effective_date or r.publication_date for r in rows_t]
             vals = [float(r.value) for r in rows_t]
             unit = rows_t[-1].currency_or_unit
 
@@ -210,7 +214,14 @@ def run_agent_6_quant(state: ResearchGraphState, db: Session) -> ResearchGraphSt
         )
         forecasts_output[code] = fc_res.to_dict()
 
-        # Persist QuantForecast and ForecastBacktest to database
+        diff_pct = (
+            ((fc_res.base_case - fc_res.last_historical_value) / abs(fc_res.last_historical_value)) * 100.0
+            if abs(fc_res.last_historical_value) > 1e-9
+            else 0.0
+        )
+        pred_dir = "UP" if diff_pct > 0.25 else ("DOWN" if diff_pct < -0.25 else "FLAT")
+
+        # Persist immutable QuantForecast and ForecastBacktest to database
         qf = QuantForecast(
             target_code=fc_res.target_code,
             target_name=fc_res.target_name,
@@ -232,9 +243,13 @@ def run_agent_6_quant(state: ResearchGraphState, db: Session) -> ResearchGraphSt
             forecast_series_json=fc_res.forecast_trajectory,
             currency_or_unit=fc_res.currency_or_unit,
             is_forecast=True,
+            agent_name="AGENT_6_QUANT",
+            predicted_direction=pred_dir,
+            source_register_ids=list(state.get("valid_source_ids", []))[:3],
         )
         db.add(qf)
         db.flush()
+
 
         bt = fc_res.historical_backtest
         fb = ForecastBacktest(

@@ -62,17 +62,19 @@ export function Badge({
   className = "",
 }: {
   children: React.ReactNode;
-  variant?: "default" | "emerald" | "amber" | "rose" | "sky" | "purple";
+  variant?: "default" | "emerald" | "amber" | "rose" | "sky" | "purple" | "slate";
   className?: string;
 }) {
   const styles: Record<string, string> = {
     default: "bg-slate-800 text-slate-200 border-slate-700",
+    slate: "bg-slate-800/90 text-slate-300 border-slate-700",
     emerald: "bg-emerald-950/80 text-emerald-300 border-emerald-700/60",
     amber: "bg-amber-950/80 text-amber-300 border-amber-700/60",
     rose: "bg-rose-950/80 text-rose-300 border-rose-700/60",
     sky: "bg-sky-950/80 text-sky-300 border-sky-700/60",
     purple: "bg-purple-950/80 text-purple-300 border-purple-700/60",
   };
+
   return (
     <span
       className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-medium ${styles[variant]} ${className}`}

@@ -213,13 +213,14 @@ def bootstrap_platform_data(db: Session, run_live_network_fetch: bool = True) ->
     verified archival time-series history (NGX, FMDQ yield curve, CBN/NBS macro, official circulars),
     and optionally trigger a live network ingestion sweep.
     """
-    # 1. Ensure RBAC Admin User
+    # 1. Ensure RBAC Admin User (normalized lowercase email to match auth.py)
+    admin_email_norm = settings.INITIAL_ADMIN_EMAIL.lower().strip()
     admin_user = db.execute(
-        select(User).where(User.email == settings.INITIAL_ADMIN_EMAIL)
+        select(User).where(User.email.in_([admin_email_norm, settings.INITIAL_ADMIN_EMAIL]))
     ).scalar_one_or_none()
     if not admin_user:
         admin_user = User(
-            email=settings.INITIAL_ADMIN_EMAIL,
+            email=admin_email_norm,
             full_name="SohCahToa Executive Administrator",
             hashed_password=hash_password(settings.INITIAL_ADMIN_PASSWORD),
             role="EXECUTIVE_ADMIN",
@@ -241,6 +242,21 @@ def bootstrap_platform_data(db: Session, run_live_network_fetch: bool = True) ->
         )
         db.add(pref)
         db.commit()
+    else:
+        changed = False
+        if admin_user.email != admin_email_norm:
+            admin_user.email = admin_email_norm
+            changed = True
+        if settings.APP_ENV.lower() == "development":
+            from app.core.security import verify_password
+
+            if not verify_password(settings.INITIAL_ADMIN_PASSWORD, admin_user.hashed_password):
+                admin_user.hashed_password = hash_password(settings.INITIAL_ADMIN_PASSWORD)
+                changed = True
+        if changed:
+            db.commit()
+
+
 
     # 2. Ensure Approved Data Sources
     IngestionService.ensure_default_data_sources(db)
@@ -370,7 +386,10 @@ def bootstrap_platform_data(db: Session, run_live_network_fetch: bool = True) ->
                     reporting_period=rep_p,
                     publication_date=dt,
                     source_code=src_code,
-                    source_url=src_url,
+                    source_url="",
+                    source_tier="ARCHIVAL_BASELINE",
+                    confidence_score=45.0,
+                    is_archival_baseline=True,
                     data_frequency="DAILY",
                     verification_status="VERIFIED",
                 )
@@ -409,14 +428,17 @@ def bootstrap_platform_data(db: Session, run_live_network_fetch: bool = True) ->
                 reporting_period=base_dt.strftime("%Y-%m-%d"),
                 publication_date=base_dt,
                 source_code="FMDQ_OFFICIAL" if inst_type == "FGN_BOND" else "CBN_OFFICIAL",
-                source_url="https://fmdqgroup.com",
+                source_url="",
+                source_tier="ARCHIVAL_BASELINE",
+                confidence_score=45.0,
+                is_archival_baseline=True,
                 data_frequency="DAILY",
                 verification_status="VERIFIED",
             )
         )
     y_res = IngestionService.ingest_yield_points(db, yield_batch)
 
-    # 4c. 12 Months of Nigerian & Global Macroeconomic Indicators (NBS CPI, CBN MPR, Reserves, GDP, PMI, Debt)
+    # 4c. 12 Months of Archival Baseline Nigerian Macro Indicators (Superseded automatically by live CBN Tier-1 API)
     cpi_headline_12m = [28.20, 28.92, 29.90, 31.70, 33.20, 33.69, 33.95, 34.19, 33.40, 32.15, 32.70, 33.88]
     cpi_food_12m = [32.84, 33.93, 35.41, 37.92, 40.01, 40.53, 40.66, 40.87, 39.53, 37.52, 37.77, 39.16]
     cbn_mpr_12m = [18.75, 18.75, 18.75, 22.75, 24.75, 24.75, 26.25, 26.25, 26.75, 26.75, 27.25, 27.50]
@@ -447,13 +469,16 @@ def bootstrap_platform_data(db: Session, run_live_network_fetch: bool = True) ->
                     reporting_period=m_period,
                     publication_date=m_dt,
                     source_code=s_code,
-                    source_url=s_url,
+                    source_url="",
+                    source_tier="ARCHIVAL_BASELINE",
+                    confidence_score=45.0,
+                    is_archival_baseline=True,
                     data_frequency=freq,
                     verification_status="VERIFIED",
                 )
             )
 
-    # Latest quarterly Real GDP, CRR, Public Debt, Trade Balance, Employment
+    # Latest quarterly Real GDP, CRR, Public Debt, Trade Balance, Employment (Archival Baseline)
     point_in_time_macros = [
         ("NG_GDP_REAL_YOY", "Nigeria Real GDP Growth Rate (YoY)", "NIGERIA", "GDP", 3.46, 3.19, "PERCENT", "2026-Q3", "NBS_OFFICIAL", "https://nigerianstat.gov.ng", "QUARTERLY"),
         ("NG_CBN_CRR_COMMERCIAL", "CBN Cash Reserve Ratio (Commercial Banks)", "NIGERIA", "MONETARY_POLICY", 50.00, 45.00, "PERCENT", base_dt.strftime("%Y-%m"), "CBN_OFFICIAL", "https://www.cbn.gov.ng", "EVENT_DRIVEN"),
@@ -474,12 +499,16 @@ def bootstrap_platform_data(db: Session, run_live_network_fetch: bool = True) ->
                 reporting_period=rep_p,
                 publication_date=base_dt,
                 source_code=s_code,
-                source_url=s_url,
+                source_url="",
+                source_tier="ARCHIVAL_BASELINE",
+                confidence_score=45.0,
+                is_archival_baseline=True,
                 data_frequency=freq,
                 verification_status="VERIFIED",
             )
         )
     mac_res = IngestionService.ingest_macro_points(db, macro_batch)
+
 
     # 4d. Official Regulatory & Institutional Reference Publications in Source Register
     baseline_docs = [

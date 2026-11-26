@@ -170,4 +170,68 @@ export const fmipApi = {
       method: "POST",
       body: JSON.stringify({ question }),
     }),
+
+  getQuotaProfile: () => apiFetch<any>("/webhooks/quota-profile"),
+
+  updateQuotaProfile: (payload: {
+    quota_tier: string;
+    cooldown_seconds?: number;
+    search_queries_limit?: number;
+    max_search_results_per_query?: number;
+    rss_max_results?: number;
+    fred_history_limit?: number;
+  }) =>
+    apiFetch<any>("/webhooks/quota-profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
+  getAlertPreferences: () => apiFetch<any>("/webhooks/preferences"),
+
+  updateAlertPreferences: (payload: any) =>
+    apiFetch<any>("/webhooks/preferences", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
+  // Stage 2-6: Data Accuracy Monitor, Historical Comparison, Research Memory, Forecast Accuracy & Knowledge Graph
+  getDataAccuracyMonitor: () => apiFetch<any>("/intelligence/data-accuracy"),
+
+  runLiveVerificationAudit: (forceLiveFetch = true) =>
+    apiFetch<any>(
+      `/intelligence/data-accuracy/audit?force_live_fetch=${forceLiveFetch}`,
+      { method: "POST" }
+    ),
+
+  getHistoricalComparison: (horizon: "1W" | "1M" | "3M" | "6M" | "1Y" = "1M") =>
+    apiFetch<any>(`/intelligence/historical-comparison?horizon=${horizon}`),
+
+  getResearchMemory: (q = "", lookback = "ALL") => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (lookback) params.set("lookback", lookback);
+    return apiFetch<any>(`/intelligence/research-memory?${params.toString()}`);
+  },
+
+  getForecastAccuracy: () => apiFetch<any>("/intelligence/forecast-accuracy"),
+
+  getWhatChanged: () => apiFetch<any>("/intelligence/what-changed"),
+
+  getKnowledgeGraph: () => apiFetch<any>("/intelligence/knowledge-graph"),
+
+  runCustomScenarioStressTest: (payload: {
+    mpr_shock_bps: number;
+    inflation_shock_bps: number;
+    fx_depreciation_pct: number;
+    crude_oil_price_usd: number;
+    us_fed_shock_bps: number;
+    govt_borrowing_shock_pct: number;
+    portfolio_value_ngn: number;
+  }) =>
+    apiFetch<any>("/intelligence/scenario-stress-test", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
+
+

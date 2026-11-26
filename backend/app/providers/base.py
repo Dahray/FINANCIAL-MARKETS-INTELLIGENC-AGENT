@@ -31,13 +31,17 @@ class IngestedMarketPoint(BaseModel):
     volume: Optional[float] = None
     market_cap: Optional[float] = None
 
-    # Mandatory Section 4 Provenance Fields
+    # Mandatory Verification & Provenance Fields (Part 1.2)
     currency_or_unit: str = Field(..., min_length=1, max_length=64)
     reporting_period: str = Field(..., min_length=1, max_length=64)
     publication_date: datetime
+    effective_date: Optional[datetime] = None
     retrieval_date: datetime = Field(default_factory=utc_now)
     source_code: str = Field(..., min_length=1, max_length=64)
     source_url: str = Field(default="")
+    source_tier: str = Field(default="TIER_1_OFFICIAL")
+    confidence_score: float = Field(default=98.0, ge=0.0, le=100.0)
+    is_archival_baseline: bool = Field(default=False)
     data_frequency: str = Field(default="DAILY")
     verification_status: str = Field(default="VERIFIED")
     quality_flags: Dict[str, Any] = Field(default_factory=dict)
@@ -67,9 +71,13 @@ class IngestedYieldPoint(BaseModel):
     currency_or_unit: str = Field(default="PERCENT")
     reporting_period: str = Field(..., min_length=1, max_length=64)
     publication_date: datetime
+    effective_date: Optional[datetime] = None
     retrieval_date: datetime = Field(default_factory=utc_now)
     source_code: str = Field(..., min_length=1, max_length=64)
     source_url: str = Field(default="")
+    source_tier: str = Field(default="TIER_1_OFFICIAL")
+    confidence_score: float = Field(default=98.0, ge=0.0, le=100.0)
+    is_archival_baseline: bool = Field(default=False)
     data_frequency: str = Field(default="DAILY")
     verification_status: str = Field(default="VERIFIED")
 
@@ -96,9 +104,13 @@ class IngestedMacroPoint(BaseModel):
     currency_or_unit: str = Field(..., min_length=1, max_length=64)
     reporting_period: str = Field(..., min_length=1, max_length=64)
     publication_date: datetime
+    effective_date: Optional[datetime] = None
     retrieval_date: datetime = Field(default_factory=utc_now)
     source_code: str = Field(..., min_length=1, max_length=64)
     source_url: str = Field(default="")
+    source_tier: str = Field(default="TIER_1_OFFICIAL")
+    confidence_score: float = Field(default=98.0, ge=0.0, le=100.0)
+    is_archival_baseline: bool = Field(default=False)
     data_frequency: str = Field(default="MONTHLY")
     verification_status: str = Field(default="VERIFIED")
 
@@ -110,6 +122,7 @@ class IngestedMacroPoint(BaseModel):
         if v is None or math.isnan(v) or math.isinf(v):
             raise ValueError("Missing or NaN macroeconomic values are prohibited.")
         return float(v)
+
 
 
 class IngestedResearchItem(BaseModel):

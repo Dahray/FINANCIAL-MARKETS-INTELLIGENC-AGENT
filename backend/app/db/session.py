@@ -112,9 +112,70 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def _ensure_upgrade_columns(target_engine: Engine) -> None:
+    """
+    Non-destructively add Stage 2/3 verification & forecast tracking columns to existing
+    tables on both PostgreSQL and SQLite without losing any historical records.
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    inspector = sa_inspect(target_engine)
+    existing_tables = set(inspector.get_table_names())
+    is_pg = target_engine.dialect.name == "postgresql"
+
+    dt_type = "TIMESTAMPTZ" if is_pg else "DATETIME"
+    bool_true = "TRUE" if is_pg else "1"
+    bool_false = "FALSE" if is_pg else "0"
+    json_type = "JSONB" if is_pg else "JSON"
+
+    table_column_upgrades = {
+        "macro_indicators": [
+            ("effective_date", f"{dt_type}"),
+            ("source_url", "TEXT"),
+            ("source_tier", "VARCHAR(32) DEFAULT 'TIER_1_OFFICIAL'"),
+            ("confidence_score", "NUMERIC(5,2) DEFAULT 98.0"),
+            ("is_authoritative", f"BOOLEAN DEFAULT {bool_true}"),
+            ("is_archival_baseline", f"BOOLEAN DEFAULT {bool_false}"),
+        ],
+        "market_timeseries": [
+            ("effective_date", f"{dt_type}"),
+            ("source_url", "TEXT"),
+            ("source_tier", "VARCHAR(32) DEFAULT 'TIER_1_OFFICIAL'"),
+            ("confidence_score", "NUMERIC(5,2) DEFAULT 98.0"),
+            ("is_authoritative", f"BOOLEAN DEFAULT {bool_true}"),
+            ("is_archival_baseline", f"BOOLEAN DEFAULT {bool_false}"),
+        ],
+        "yield_curve_points": [
+            ("effective_date", f"{dt_type}"),
+            ("source_url", "TEXT"),
+            ("source_tier", "VARCHAR(32) DEFAULT 'TIER_1_OFFICIAL'"),
+            ("confidence_score", "NUMERIC(5,2) DEFAULT 98.0"),
+            ("is_authoritative", f"BOOLEAN DEFAULT {bool_true}"),
+            ("is_archival_baseline", f"BOOLEAN DEFAULT {bool_false}"),
+        ],
+        "quant_forecasts": [
+            ("agent_name", "VARCHAR(64) DEFAULT 'AGENT_6_QUANT'"),
+            ("predicted_direction", "VARCHAR(16) DEFAULT 'FLAT'"),
+            ("source_register_ids", f"{json_type} DEFAULT '[]'"),
+        ],
+    }
+
+    for tbl, cols in table_column_upgrades.items():
+        if tbl not in existing_tables:
+            continue
+        existing_cols = {c["name"] for c in inspector.get_columns(tbl)}
+        for col_name, col_def in cols:
+            if col_name not in existing_cols:
+                try:
+                    with target_engine.begin() as conn:
+                        conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN {col_name} {col_def};"))
+                except Exception as exc:
+                    logger.info("Column upgrade note for %s.%s: %s", tbl, col_name, exc)
+
+
 def init_database_schema(engine: Optional[Engine] = None) -> None:
     """
-    Initialize all 18 ORM tables and configure PostgreSQL extensions
+    Initialize all 28 ORM tables and configure PostgreSQL extensions
     (TimescaleDB hypertables + pgvector) when running on PostgreSQL.
     """
     import app.models  # noqa: F401 - ensure all models are registered on Base.metadata
@@ -129,6 +190,7 @@ def init_database_schema(engine: Optional[Engine] = None) -> None:
                     logger.warning("Extension %s setup note: %s", ext, exc)
 
     Base.metadata.create_all(bind=target_engine)
+    _ensure_upgrade_columns(target_engine)
 
     if target_engine.dialect.name == "postgresql":
         hypertables = [
@@ -151,3 +213,4 @@ def init_database_schema(engine: Optional[Engine] = None) -> None:
                     table_name,
                     exc,
                 )
+

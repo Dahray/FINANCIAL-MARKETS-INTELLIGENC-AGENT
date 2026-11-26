@@ -78,7 +78,13 @@ def tool_compute_all_market_metrics(
     db: Session,
     symbols: Optional[Sequence[str]] = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Run `compute_market_performance` across all tracked Nigerian and global symbols."""
+    """
+    Run `compute_market_performance` across all tracked Nigerian and global symbols.
+    Strictly prioritizes live Tier-1/2 official records over archival baselines when available,
+    and attaches freshness & verification metadata to every symbol.
+    """
+    from app.services.verification_service import compute_freshness_assessment
+
     target_symbols = list(
         symbols
         or [
@@ -97,7 +103,7 @@ def tool_compute_all_market_metrics(
     )
     results: Dict[str, Dict[str, Any]] = {}
     for sym in target_symbols:
-        rows = (
+        all_rows = (
             db.execute(
                 select(MarketTimeseries)
                 .where(
@@ -109,17 +115,32 @@ def tool_compute_all_market_metrics(
             .scalars()
             .all()
         )
+        live_rows = [r for r in all_rows if not r.is_archival_baseline]
+        rows = live_rows if len(live_rows) >= 5 else all_rows
         if len(rows) >= 5:
             perf = compute_market_performance(
                 dates=[r.publication_date for r in rows],
                 prices=[float(r.value) for r in rows],
                 symbol=sym,
             )
+            latest_row = rows[-1]
+            fresh = compute_freshness_assessment(
+                indicator_key=sym,
+                publication_date=latest_row.publication_date,
+                effective_date=latest_row.effective_date,
+                is_archival_baseline=bool(latest_row.is_archival_baseline),
+            )
             d = perf.to_dict()
-            d["indicator_name"] = rows[-1].indicator_name
-            d["asset_class"] = rows[-1].asset_class
-            d["market_region"] = rows[-1].market_region
-            d["currency_or_unit"] = rows[-1].currency_or_unit
+            d["indicator_name"] = latest_row.indicator_name
+            d["asset_class"] = latest_row.asset_class
+            d["market_region"] = latest_row.market_region
+            d["currency_or_unit"] = latest_row.currency_or_unit
+            d["source_tier"] = latest_row.source_tier
+            d["source_url"] = latest_row.source_url or ""
+            d["is_archival_baseline"] = bool(latest_row.is_archival_baseline)
+            d["freshness_status"] = fresh["freshness_status"]
+            d["age_days"] = fresh["age_days"]
+            d["stale_warning"] = fresh["stale_warning"]
             results[sym] = d
     return results
 
@@ -128,7 +149,9 @@ def tool_compute_yield_curve_and_bond_risk(
     db: Session,
     curve_name: str = "NGN_SOVEREIGN_FMDQ",
 ) -> Dict[str, Any]:
-    """Run Nelson-Siegel yield curve fitting and FGN 10Y duration/convexity analytics."""
+    """Run Nelson-Siegel yield curve fitting and FGN 10Y duration/convexity analytics using verified authoritative curves & CPI."""
+    from app.services.verification_service import FinancialDataVerificationEngine
+
     rows = (
         db.execute(
             select(YieldCurvePoint)
@@ -138,21 +161,20 @@ def tool_compute_yield_curve_and_bond_risk(
         .scalars()
         .all()
     )
-    latest_by_tenor: Dict[str, YieldCurvePoint] = {}
+    grouped_tenor: Dict[str, List[YieldCurvePoint]] = {}
     for r in rows:
-        latest_by_tenor[r.tenor_label] = r
-    ordered = sorted(latest_by_tenor.values(), key=lambda x: x.tenor_days)
+        grouped_tenor.setdefault(r.tenor_label, []).append(r)
 
-    cpi_row = (
-        db.execute(
-            select(MacroIndicator)
-            .where(MacroIndicator.indicator_code == "NG_CPI_HEADLINE_YOY")
-            .order_by(MacroIndicator.publication_date.desc())
-            .limit(1)
-        )
-        .scalar_one_or_none()
-    )
-    cpi_val = float(cpi_row.value) if cpi_row else 33.88
+    ordered: List[YieldCurvePoint] = []
+    for tenor, t_rows in grouped_tenor.items():
+        live_t = [r for r in t_rows if not r.is_archival_baseline]
+        pool = live_t if live_t else t_rows
+        best = max(pool, key=FinancialDataVerificationEngine._sort_key_authoritative)
+        ordered.append(best)
+    ordered.sort(key=lambda x: x.tenor_days)
+
+    macro_snap = FinancialDataVerificationEngine.get_authoritative_macro_snapshot(db)
+    cpi_val = float(macro_snap.get("NG_CPI_HEADLINE_YOY", {}).get("latest_value", 14.06))
 
     yc = analyze_yield_curve(
         tenor_years=[float(p.tenor_years) for p in ordered],
@@ -174,44 +196,14 @@ def tool_compute_yield_curve_and_bond_risk(
 
 
 def tool_load_latest_macro_snapshot(db: Session) -> Dict[str, Dict[str, Any]]:
-    """Retrieve latest verified value and change for every macroeconomic indicator."""
-    rows = (
-        db.execute(
-            select(MacroIndicator)
-            .where(MacroIndicator.verification_status == "VERIFIED")
-            .order_by(MacroIndicator.publication_date.asc())
-        )
-        .scalars()
-        .all()
-    )
-    grouped: Dict[str, List[MacroIndicator]] = {}
-    for r in rows:
-        grouped.setdefault(r.indicator_code, []).append(r)
+    """
+    Retrieve authoritative, source-hierarchy-verified values + full 12-attribute provenance
+    and freshness monitoring for every macroeconomic indicator.
+    """
+    from app.services.verification_service import FinancialDataVerificationEngine
 
-    snapshot: Dict[str, Dict[str, Any]] = {}
-    for code, history in grouped.items():
-        latest = history[-1]
-        prev_val = (
-            float(latest.previous_value)
-            if latest.previous_value is not None
-            else (float(history[-2].value) if len(history) >= 2 else None)
-        )
-        curr_val = float(latest.value)
-        change = round(curr_val - prev_val, 4) if prev_val is not None else None
-        snapshot[code] = {
-            "indicator_code": code,
-            "indicator_name": latest.indicator_name,
-            "country": latest.country,
-            "category": latest.category,
-            "latest_value": curr_val,
-            "previous_value": prev_val,
-            "change": change,
-            "currency_or_unit": latest.currency_or_unit,
-            "reporting_period": latest.reporting_period,
-            "publication_date": latest.publication_date.strftime("%Y-%m-%d"),
-            "observations_count": len(history),
-        }
-    return snapshot
+    return FinancialDataVerificationEngine.get_authoritative_macro_snapshot(db)
+
 
 
 def tool_compute_equity_valuations_and_ratios(

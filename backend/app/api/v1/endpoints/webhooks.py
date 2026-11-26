@@ -198,3 +198,127 @@ def update_alert_preferences(
         "email_recipients": pref.email_recipients,
         "min_opportunity_score_threshold": float(pref.min_opportunity_score_threshold),
     }
+
+
+class QuotaProfileUpdateSchema(BaseModel):
+    quota_tier: str = Field(
+        default="FREE_STARTER",
+        description="FREE_STARTER | STANDARD_PAID | ENTERPRISE_UNLIMITED",
+    )
+    cooldown_seconds: Optional[int] = Field(default=None, ge=0, le=86400)
+    search_queries_limit: Optional[int] = Field(default=None, ge=1, le=8)
+    max_search_results_per_query: Optional[int] = Field(default=None, ge=1, le=25)
+    rss_max_results: Optional[int] = Field(default=None, ge=1, le=50)
+    fred_history_limit: Optional[int] = Field(default=None, ge=5, le=500)
+
+
+@router.get("/quota-profile")
+def get_ingestion_quota_profile() -> Dict[str, Any]:
+    """Retrieve active API quota tier and ingestion depth parameters."""
+    return IngestionService.get_quota_profile()
+
+
+@router.put("/quota-profile")
+def update_ingestion_quota_profile(
+    payload: QuotaProfileUpdateSchema,
+) -> Dict[str, Any]:
+    """
+    Dynamically scale API quota tier and ingestion depth parameters
+    (`FREE_STARTER`, `STANDARD_PAID`, or `ENTERPRISE_UNLIMITED`).
+    """
+    updated = IngestionService.update_quota_profile(
+        quota_tier=payload.quota_tier,
+        cooldown_seconds=payload.cooldown_seconds,
+        search_queries_limit=payload.search_queries_limit,
+        max_search_results_per_query=payload.max_search_results_per_query,
+        rss_max_results=payload.rss_max_results,
+        fred_history_limit=payload.fred_history_limit,
+    )
+    return {
+        "status": "updated",
+        **updated,
+    }
+
+
+@router.post("/n8n/forecast-evaluation")
+def webhook_forecast_outcome_evaluation(
+    db: Session = Depends(get_db),
+    _: None = Depends(_verify_n8n_secret),
+) -> Dict[str, Any]:
+    """Evaluate all matured forecasts against verified official market outcomes (Part 2.3)."""
+    from app.services.forecast_evaluation_service import ForecastEvaluationService
+
+    eval_summary = ForecastEvaluationService.evaluate_all_forecasts(db)
+    dashboard = ForecastEvaluationService.get_forecast_accuracy_dashboard(db)
+    return {
+        "workflow": "forecast_outcome_evaluation",
+        "status": "completed",
+        "evaluation_summary": eval_summary,
+        "overall_accuracy": dashboard["overall"],
+    }
+
+
+@router.post("/n8n/monthly-review")
+def webhook_monthly_market_review(
+    db: Session = Depends(get_db),
+    _: None = Depends(_verify_n8n_secret),
+) -> Dict[str, Any]:
+    """
+    Part 4 Monthly Workflow: Comprehensive monthly market review, prior-month forecast evaluation,
+    structural market trends (1M/3M comparison), and investment opportunity re-assessment.
+    """
+    from app.services.forecast_evaluation_service import ForecastEvaluationService
+    from app.services.research_memory_service import ResearchMemoryService
+    from app.services.verification_service import FinancialDataVerificationEngine
+
+    ingest = IngestionService.run_live_ingestion_cycle(db, force=True, cooldown_seconds=0)
+    fc_acc = ForecastEvaluationService.get_forecast_accuracy_dashboard(db)
+    hist_1m = ResearchMemoryService.compare_indicators_across_horizons(db, horizon="1M")
+    acc_mon = FinancialDataVerificationEngine.get_data_accuracy_monitor(db)
+    report_res = ReportService.execute_friday_report_pipeline(db)
+
+    return {
+        "workflow": "05_monthly_market_review",
+        "status": "completed",
+        "report_code": report_res["report_code"],
+        "data_accuracy_summary": acc_mon["summary"],
+        "monthly_forecast_accuracy": fc_acc["overall"],
+        "indicators_compared_1m": len(hist_1m["comparisons"]),
+        "ingestion_summary": ingest,
+        "completed_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/n8n/quarterly-outlook")
+def webhook_quarterly_financial_outlook(
+    db: Session = Depends(get_db),
+    _: None = Depends(_verify_n8n_secret),
+) -> Dict[str, Any]:
+    """
+    Part 4 Quarterly Workflow: Comprehensive quarterly financial market outlook, 3M/6M/1Y
+    structural trend evaluation, forecast performance audit, competitive review, and strategic scenarios.
+    """
+    from app.services.forecast_evaluation_service import ForecastEvaluationService
+    from app.services.research_memory_service import ResearchMemoryService
+
+    fc_acc = ForecastEvaluationService.get_forecast_accuracy_dashboard(db)
+    hist_3m = ResearchMemoryService.compare_indicators_across_horizons(db, horizon="3M")
+    kg = ResearchMemoryService.get_knowledge_graph(db)
+    stress = ResearchMemoryService.run_custom_scenario_stress_test(
+        db=db, mpr_shock_bps=150, inflation_shock_bps=200, fx_depreciation_pct=10.0
+    )
+    report_res = ReportService.execute_friday_report_pipeline(db)
+
+    return {
+        "workflow": "06_quarterly_financial_outlook",
+        "status": "completed",
+        "report_code": report_res["report_code"],
+        "quarterly_forecast_accuracy": fc_acc["overall"],
+        "structural_indicators_3m": len(hist_3m["comparisons"]),
+        "knowledge_graph_nodes": len(kg["nodes"]),
+        "knowledge_graph_edges": len(kg["edges"]),
+        "quarterly_stress_scenarios": stress["scenarios"],
+        "completed_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+
+

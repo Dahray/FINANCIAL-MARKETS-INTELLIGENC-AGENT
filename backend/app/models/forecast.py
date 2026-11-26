@@ -52,6 +52,16 @@ class QuantForecast(Base):
     )
     currency_or_unit: Mapped[str] = mapped_column(String(64), nullable=False)
     is_forecast: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    agent_name: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="AGENT_6_QUANT", index=True
+    )
+    predicted_direction: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="FLAT"
+    )
+    source_register_ids: Mapped[List[str]] = mapped_column(
+        JSONVariant, nullable=False, default=list
+    )
+
 
 
 class ForecastBacktest(Base):

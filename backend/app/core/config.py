@@ -62,9 +62,9 @@ class Settings(BaseSettings):
 
     # 3. AI & Multi-Agent Orchestration (Google Gemini API)
     GEMINI_API_KEY: str = ""
-    GEMINI_PRIMARY_MODEL: str = "gemini-2.5-pro"
-    GEMINI_FAST_MODEL: str = "gemini-2.5-flash"
-    GEMINI_EMBEDDING_MODEL: str = "models/text-embedding-004"
+    GEMINI_PRIMARY_MODEL: str = "gemini-3-flash-preview"
+    GEMINI_FAST_MODEL: str = "gemini-3.1-flash-lite-preview"
+    GEMINI_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     GEMINI_TEMPERATURE: float = 0.1
     GEMINI_MAX_OUTPUT_TOKENS: int = 8192
 
@@ -90,6 +90,15 @@ class Settings(BaseSettings):
     DATA_PROVIDER_USER_AGENT: str = (
         "FMIP-Institutional-Research-Engine/1.0 (+https://sohcahtoaholdings.com)"
     )
+
+    # 4b. Configurable API Quota & Ingestion Depth Scaling
+    # Options: FREE_STARTER | STANDARD_PAID | ENTERPRISE_UNLIMITED
+    INGESTION_QUOTA_TIER: str = "FREE_STARTER"
+    INGESTION_COOLDOWN_SECONDS: int = 900
+    INGESTION_MAX_SEARCH_RESULTS_PER_QUERY: int = 3
+    INGESTION_SEARCH_QUERIES_LIMIT: int = 2
+    INGESTION_RSS_MAX_RESULTS: int = 6
+    INGESTION_FRED_HISTORY_LIMIT: int = 15
 
     # 5. Reporting, Google Drive Archiving & Gmail Delivery
     REPORT_STORAGE_DIR: str = str(PROJECT_ROOT / "storage" / "reports")

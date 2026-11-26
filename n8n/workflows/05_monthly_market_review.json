@@ -1,0 +1,61 @@
+{
+  "name": "05 - FMIP Monthly Institutional Market Review & Forecast Evaluation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 17 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-monthly-review",
+      "name": "Monthly 1st Business Day (17:00 WAT)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.FMIP_BACKEND_URL || 'http://backend:8000'}}/api/v1/webhooks/n8n/monthly-review",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Webhook-Secret",
+              "value": "={{$env.N8N_WEBHOOK_SHARED_SECRET || 'fmip-n8n-shared-secret'}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "http-monthly-review",
+      "name": "Run Monthly Market Review, Forecast Eval & 1M Diff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "Monthly 1st Business Day (17:00 WAT)": {
+      "main": [
+        [
+          {
+            "node": "Run Monthly Market Review, Forecast Eval & 1M Diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "Africa/Lagos"
+  }
+}

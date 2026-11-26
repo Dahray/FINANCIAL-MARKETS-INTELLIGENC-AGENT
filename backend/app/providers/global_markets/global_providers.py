@@ -37,19 +37,32 @@ class FMPDataProvider(BaseMarketDataProvider):
     provider_code = "FMP_API"
     provider_name = "Financial Modeling Prep (FMP)"
     reliability_tier = "TIER_2_INSTITUTIONAL"
-    BASE_URL = "https://financialmodelingprep.com/api/v3"
+    BASE_URL = "https://financialmodelingprep.com/stable"
 
-    DEFAULT_SYMBOLS: List[Tuple[str, str, str, str, str]] = [
-        ("^GSPC", "S&P 500 Index", "INDEX", "GLOBAL", "INDEX_POINTS"),
-        ("^IXIC", "NASDAQ Composite Index", "INDEX", "GLOBAL", "INDEX_POINTS"),
-        ("^FTSE", "FTSE 100 Index", "INDEX", "GLOBAL", "INDEX_POINTS"),
-        ("BZUSD", "Brent Crude Oil Futures", "COMMODITY", "GLOBAL", "USD_PER_BBL"),
-        ("GCUSD", "Gold Spot USD/oz", "COMMODITY", "GLOBAL", "USD_PER_OZ"),
-        ("USDNGN", "USD/NGN Exchange Rate", "FX", "NIGERIA", "NGN_PER_USD"),
+    DEFAULT_SYMBOLS: List[Tuple[str, str, str, str, str, str]] = [
+        ("^GSPC", "SPX", "S&P 500 Index", "INDEX", "GLOBAL", "INDEX_POINTS"),
+        ("^IXIC", "^IXIC", "NASDAQ Composite Index", "INDEX", "GLOBAL", "INDEX_POINTS"),
+        ("^FTSE", "^FTSE", "FTSE 100 Index", "INDEX", "GLOBAL", "INDEX_POINTS"),
+        ("BZUSD", "BRENT", "Brent Crude Oil Futures (FMP)", "COMMODITY", "GLOBAL", "USD_PER_BBL"),
+        ("GCUSD", "GOLD", "Gold Futures USD/oz", "COMMODITY", "GLOBAL", "USD_PER_OZ"),
+    ]
+
+    EXPANDED_SYMBOLS: List[Tuple[str, str, str, str, str, str]] = DEFAULT_SYMBOLS + [
+        ("CLUSD", "WTI", "WTI Crude Oil Futures", "COMMODITY", "GLOBAL", "USD_PER_BBL"),
+        ("NGUSD", "NATGAS", "Natural Gas Futures", "COMMODITY", "GLOBAL", "USD_PER_MMBTU"),
+        ("SIUSD", "SILVER", "Silver Futures USD/oz", "COMMODITY", "GLOBAL", "USD_PER_OZ"),
+        ("EEM", "EEM", "iShares MSCI Emerging Markets ETF", "INDEX", "GLOBAL", "USD"),
+    ]
+
+    ENTERPRISE_SYMBOLS: List[Tuple[str, str, str, str, str, str]] = EXPANDED_SYMBOLS + [
+        ("AFK", "AFK", "VanEck Africa Index ETF", "INDEX", "AFRICA", "USD"),
+        ("HGUSD", "COPPER", "Copper Futures", "COMMODITY", "GLOBAL", "USD_PER_LB"),
     ]
 
     def fetch_market_timeseries(
-        self, symbols: Optional[List[str]] = None
+        self,
+        symbols: Optional[List[str]] = None,
+        symbol_tier: str = "FREE_STARTER",
     ) -> List[IngestedMarketPoint]:
         if not settings.FMP_API_KEY:
             logger.info("FMP_API_KEY not configured in .env; skipping live FMP REST call.")
@@ -57,28 +70,37 @@ class FMPDataProvider(BaseMarketDataProvider):
 
         points: List[IngestedMarketPoint] = []
         now_utc = datetime.now(timezone.utc)
-        target_tuples = self.DEFAULT_SYMBOLS
+        if symbol_tier == "ENTERPRISE_UNLIMITED":
+            target_tuples = self.ENTERPRISE_SYMBOLS
+        elif symbol_tier == "STANDARD_PAID":
+            target_tuples = self.EXPANDED_SYMBOLS
+        else:
+            target_tuples = self.DEFAULT_SYMBOLS
+
         if symbols:
-            target_tuples = [t for t in self.DEFAULT_SYMBOLS if t[0] in symbols] or [
-                (s, s, "EQUITY", "GLOBAL", "USD") for s in symbols
+            target_tuples = [t for t in self.ENTERPRISE_SYMBOLS if t[0] in symbols or t[1] in symbols] or [
+                (s, s, s, "EQUITY", "GLOBAL", "USD") for s in symbols
             ]
 
-        symbol_csv = ",".join(t[0] for t in target_tuples)
-        meta_map = {t[0]: t for t in target_tuples}
-        url = f"{self.BASE_URL}/quote/{symbol_csv}"
+        url = f"{self.BASE_URL}/quote"
 
         try:
             with create_http_client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
-                resp = client.get(url, params={"apikey": settings.FMP_API_KEY})
-                if resp.status_code == 200 and isinstance(resp.json(), list):
-                    for item in resp.json():
-                        sym = str(item.get("symbol", ""))
-                        price = item.get("price")
-                        if not sym or price is None:
-                            continue
-                        _, name, asset_cls, region, unit = meta_map.get(
-                            sym, (sym, item.get("name", sym), "EQUITY", "GLOBAL", "USD")
+                for api_sym, db_sym, name, asset_cls, region, unit in target_tuples:
+                    try:
+                        resp = client.get(
+                            url,
+                            params={"symbol": api_sym, "apikey": settings.FMP_API_KEY},
                         )
+                        if resp.status_code != 200:
+                            continue
+                        payload = resp.json()
+                        if not isinstance(payload, list) or not payload:
+                            continue
+                        item = payload[0]
+                        price = item.get("price")
+                        if price is None:
+                            continue
                         ts = item.get("timestamp")
                         pub_dt = (
                             datetime.fromtimestamp(int(ts), tz=timezone.utc)
@@ -87,7 +109,7 @@ class FMPDataProvider(BaseMarketDataProvider):
                         )
                         points.append(
                             IngestedMarketPoint(
-                                symbol=sym,
+                                symbol=db_sym,
                                 indicator_name=name,
                                 asset_class=asset_cls,
                                 market_region=region,
@@ -101,20 +123,29 @@ class FMPDataProvider(BaseMarketDataProvider):
                                 currency_or_unit=unit,
                                 reporting_period=pub_dt.strftime("%Y-%m-%d"),
                                 publication_date=pub_dt,
+                                effective_date=pub_dt,
                                 source_code=self.provider_code,
-                                source_url=f"{self.BASE_URL}/quote/{sym}",
+                                source_url=f"https://financialmodelingprep.com/stable/quote?symbol={api_sym}",
+                                source_tier="TIER_2_INSTITUTIONAL",
+                                confidence_score=90.0,
+                                is_archival_baseline=False,
                                 data_frequency="DAILY",
                                 verification_status="VERIFIED",
                             )
                         )
+                    except Exception as sym_exc:
+                        logger.info("FMP symbol %s fetch note: %s", api_sym, sym_exc)
         except Exception as exc:
             logger.warning("FMPDataProvider error: %s", exc)
         return points
 
 
+
 class AlphaVantageDataProvider(BaseMarketDataProvider):
     """
     Alpha Vantage API adapter for FX exchange rates and global commodities.
+    Supports single-pair mode on FREE_STARTER (to protect 25 req/day limit)
+    and multi-pair African/Global FX ingestion on STANDARD_PAID / ENTERPRISE_UNLIMITED.
     """
 
     provider_code = "ALPHA_VANTAGE"
@@ -122,8 +153,28 @@ class AlphaVantageDataProvider(BaseMarketDataProvider):
     reliability_tier = "TIER_2_INSTITUTIONAL"
     BASE_URL = "https://www.alphavantage.co/query"
 
+    FX_PAIRS_BY_TIER: Dict[str, List[Tuple[str, str, str, str]]] = {
+        "FREE_STARTER": [
+            ("USD", "NGN", "NIGERIA", "NGN_PER_USD"),
+        ],
+        "STANDARD_PAID": [
+            ("USD", "NGN", "NIGERIA", "NGN_PER_USD"),
+            ("GBP", "NGN", "NIGERIA", "NGN_PER_GBP"),
+            ("EUR", "NGN", "NIGERIA", "NGN_PER_EUR"),
+        ],
+        "ENTERPRISE_UNLIMITED": [
+            ("USD", "NGN", "NIGERIA", "NGN_PER_USD"),
+            ("GBP", "NGN", "NIGERIA", "NGN_PER_GBP"),
+            ("EUR", "NGN", "NIGERIA", "NGN_PER_EUR"),
+            ("USD", "ZAR", "AFRICA", "ZAR_PER_USD"),
+            ("USD", "GHS", "AFRICA", "GHS_PER_USD"),
+        ],
+    }
+
     def fetch_market_timeseries(
-        self, symbols: Optional[List[str]] = None
+        self,
+        symbols: Optional[List[str]] = None,
+        quota_tier: str = "FREE_STARTER",
     ) -> List[IngestedMarketPoint]:
         if not settings.ALPHA_VANTAGE_API_KEY:
             logger.info("ALPHA_VANTAGE_API_KEY not configured in .env; skipping Alpha Vantage call.")
@@ -131,39 +182,42 @@ class AlphaVantageDataProvider(BaseMarketDataProvider):
 
         points: List[IngestedMarketPoint] = []
         now_utc = datetime.now(timezone.utc)
+        pairs = self.FX_PAIRS_BY_TIER.get(quota_tier, self.FX_PAIRS_BY_TIER["FREE_STARTER"])
+
         try:
             with create_http_client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
-                resp = client.get(
-                    self.BASE_URL,
-                    params={
-                        "function": "CURRENCY_EXCHANGE_RATE",
-                        "from_currency": "USD",
-                        "to_currency": "NGN",
-                        "apikey": settings.ALPHA_VANTAGE_API_KEY,
-                    },
-                )
-                if resp.status_code == 200:
-                    data = resp.json().get("Realtime Currency Exchange Rate", {})
-                    rate_str = data.get("5. Exchange Rate")
-                    if rate_str:
-                        rate_val = float(rate_str)
-                        points.append(
-                            IngestedMarketPoint(
-                                symbol="USDNGN.AV",
-                                indicator_name="USD/NGN Exchange Rate (Alpha Vantage)",
-                                asset_class="FX",
-                                market_region="NIGERIA",
-                                value=rate_val,
-                                close_value=rate_val,
-                                currency_or_unit="NGN_PER_USD",
-                                reporting_period=now_utc.strftime("%Y-%m-%d"),
-                                publication_date=now_utc,
-                                source_code=self.provider_code,
-                                source_url=self.BASE_URL,
-                                data_frequency="DAILY",
-                                verification_status="VERIFIED",
+                for from_ccy, to_ccy, region, unit in pairs:
+                    resp = client.get(
+                        self.BASE_URL,
+                        params={
+                            "function": "CURRENCY_EXCHANGE_RATE",
+                            "from_currency": from_ccy,
+                            "to_currency": to_ccy,
+                            "apikey": settings.ALPHA_VANTAGE_API_KEY,
+                        },
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json().get("Realtime Currency Exchange Rate", {})
+                        rate_str = data.get("5. Exchange Rate")
+                        if rate_str:
+                            rate_val = float(rate_str)
+                            points.append(
+                                IngestedMarketPoint(
+                                    symbol=f"{from_ccy}{to_ccy}.AV",
+                                    indicator_name=f"{from_ccy}/{to_ccy} Exchange Rate (Alpha Vantage)",
+                                    asset_class="FX",
+                                    market_region=region,
+                                    value=rate_val,
+                                    close_value=rate_val,
+                                    currency_or_unit=unit,
+                                    reporting_period=now_utc.strftime("%Y-%m-%d"),
+                                    publication_date=now_utc,
+                                    source_code=self.provider_code,
+                                    source_url=self.BASE_URL,
+                                    data_frequency="DAILY",
+                                    verification_status="VERIFIED",
+                                )
                             )
-                        )
         except Exception as exc:
             logger.warning("AlphaVantageDataProvider error: %s", exc)
         return points
@@ -268,10 +322,10 @@ class FREDDataProvider(BaseMacroDataProvider, BaseMarketDataProvider):
             logger.info("FRED series fetch note for %s: %s", fred_id, exc)
         return observations
 
-    def fetch_macro_indicators(self) -> List[IngestedMacroPoint]:
+    def fetch_macro_indicators(self, history_limit: int = 6) -> List[IngestedMacroPoint]:
         points: List[IngestedMacroPoint] = []
         for meta in self.MACRO_SERIES:
-            obs = self._fetch_series_tail(meta["fred_id"], limit=6)
+            obs = self._fetch_series_tail(meta["fred_id"], limit=max(6, history_limit // 2))
             for idx, (dt, val) in enumerate(obs):
                 prev_val = obs[idx - 1][1] if idx > 0 else None
                 points.append(
@@ -294,11 +348,13 @@ class FREDDataProvider(BaseMacroDataProvider, BaseMarketDataProvider):
         return points
 
     def fetch_market_timeseries(
-        self, symbols: Optional[List[str]] = None
+        self,
+        symbols: Optional[List[str]] = None,
+        history_limit: int = 15,
     ) -> List[IngestedMarketPoint]:
         points: List[IngestedMarketPoint] = []
         for meta in self.MARKET_SERIES:
-            obs = self._fetch_series_tail(meta["fred_id"], limit=15)
+            obs = self._fetch_series_tail(meta["fred_id"], limit=history_limit)
             for dt, val in obs:
                 points.append(
                     IngestedMarketPoint(
@@ -319,10 +375,10 @@ class FREDDataProvider(BaseMacroDataProvider, BaseMarketDataProvider):
                 )
         return points
 
-    def fetch_yield_curves(self) -> List[IngestedYieldPoint]:
+    def fetch_yield_curves(self, history_limit: int = 3) -> List[IngestedYieldPoint]:
         points: List[IngestedYieldPoint] = []
         for fred_id, tenor_lbl, t_days, t_years in self.UST_YIELD_SERIES:
-            obs = self._fetch_series_tail(fred_id, limit=3)
+            obs = self._fetch_series_tail(fred_id, limit=max(3, history_limit // 5))
             for dt, val in obs:
                 points.append(
                     IngestedYieldPoint(
@@ -343,3 +399,4 @@ class FREDDataProvider(BaseMacroDataProvider, BaseMarketDataProvider):
                     )
                 )
         return points
+

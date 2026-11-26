@@ -338,6 +338,15 @@ def persist_graph_outputs_to_db(
 
     db.commit()
     db.refresh(weekly_report)
+
+    # 7. Persist Structured Historical Research Memory, 14-pt Business Cases, QA Scorecard & Knowledge Graph
+    try:
+        from app.services.research_memory_service import ResearchMemoryService
+
+        ResearchMemoryService.sync_research_memory_from_report(db, weekly_report, state)
+    except Exception as exc:
+        logger.warning("Research memory sync note: %s", exc)
+
     return weekly_report
 
 
@@ -348,8 +357,11 @@ def run_full_multi_agent_research_cycle(
 ) -> Tuple[WeeklyReport, ResearchGraphState]:
     """
     Execute the complete 8-Agent institutional research cycle from Friday-to-Friday,
-    persist all findings to PostgreSQL, and return `(WeeklyReport, final_state)`.
+    compare against historical research memory (Part 3.1), persist all verified findings
+    to PostgreSQL, and return `(WeeklyReport, final_state)`.
     """
+    from app.services.research_memory_service import ResearchMemoryService
+
     prev_fri, curr_fri, holiday_note = compute_friday_to_friday_window(reference_dt)
 
     agent_run = AgentRun(
@@ -364,6 +376,7 @@ def run_full_multi_agent_research_cycle(
 
     ledger = load_source_register_ledger(db, limit=60)
     valid_ids = [str(entry["id"]) for entry in ledger]
+    weekly_comparison = ResearchMemoryService.build_weekly_comparison_context(db)
 
     initial_state: ResearchGraphState = {
         "run_id": agent_run.id,
@@ -372,6 +385,7 @@ def run_full_multi_agent_research_cycle(
         "period_end_iso": curr_fri.isoformat(),
         "source_register_ledger": ledger,
         "valid_source_ids": valid_ids,
+        "weekly_comparison_context": weekly_comparison,
         "revision_count": 0,
         "max_revisions": 2,
         "editor_feedback": [f"Holiday check note: {holiday_note}"] if holiday_note else [],
@@ -381,3 +395,4 @@ def run_full_multi_agent_research_cycle(
     final_state = _execute_8_agent_workflow(initial_state, db)
     weekly_report = persist_graph_outputs_to_db(db, final_state, agent_run)
     return weekly_report, final_state
+

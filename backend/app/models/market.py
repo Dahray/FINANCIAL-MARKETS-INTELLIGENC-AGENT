@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, JSONVariant
@@ -15,7 +15,7 @@ from app.models.user import new_uuid_str, utc_now
 class MarketTimeseries(Base):
     """
     Time-series market data table (NGX equities, global indices, FX rates, money markets, commodities).
-    Enforces all 9 mandatory Section 4 provenance fields plus deduplication hash.
+    Enforces all 12 mandatory verification & provenance fields plus deduplication hash.
     """
 
     __tablename__ = "market_timeseries"
@@ -39,11 +39,14 @@ class MarketTimeseries(Base):
     volume: Mapped[Optional[float]] = mapped_column(Numeric(24, 4), nullable=True)
     market_cap: Mapped[Optional[float]] = mapped_column(Numeric(24, 2), nullable=True)
 
-    # Mandatory Section 4 Provenance Metadata
+    # Mandatory Verification & Provenance Metadata (Part 1.2)
     currency_or_unit: Mapped[str] = mapped_column(String(64), nullable=False)
     reporting_period: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     publication_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), primary_key=True, nullable=False, index=True
+    )
+    effective_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
     )
     retrieval_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
@@ -51,6 +54,15 @@ class MarketTimeseries(Base):
     source_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("data_sources.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_tier: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="TIER_1_OFFICIAL", index=True
+    )
+    confidence_score: Mapped[float] = mapped_column(
+        Numeric(5, 2), nullable=False, default=98.0
+    )
+    is_authoritative: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    is_archival_baseline: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     data_frequency: Mapped[str] = mapped_column(String(32), nullable=False, default="DAILY")
     verification_status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="VERIFIED", index=True
@@ -66,7 +78,7 @@ class YieldCurvePoint(Base):
     """
     Fixed-income yield curve observations (Nigerian Treasury Bills 91D/182D/364D,
     OMO bills, FGN Bonds 2Y-30Y, US Treasury benchmarks).
-    Enforces all 9 mandatory Section 4 provenance fields.
+    Enforces all 12 mandatory verification & provenance fields.
     """
 
     __tablename__ = "yield_curve_points"
@@ -81,7 +93,7 @@ class YieldCurvePoint(Base):
     tenor_days: Mapped[int] = mapped_column(Integer, nullable=False)
     tenor_years: Mapped[float] = mapped_column(Numeric(10, 4), nullable=False)
 
-    # Mandatory Section 4 Provenance Metadata
+    # Mandatory Verification & Provenance Metadata (Part 1.2)
     indicator_name: Mapped[str] = mapped_column(String(255), nullable=False)
     value: Mapped[float] = mapped_column(Numeric(12, 6), nullable=False)
     coupon_rate: Mapped[Optional[float]] = mapped_column(Numeric(12, 6), nullable=True)
@@ -91,14 +103,27 @@ class YieldCurvePoint(Base):
     publication_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), primary_key=True, nullable=False, index=True
     )
+    effective_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     retrieval_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
     source_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("data_sources.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_tier: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="TIER_1_OFFICIAL", index=True
+    )
+    confidence_score: Mapped[float] = mapped_column(
+        Numeric(5, 2), nullable=False, default=98.0
+    )
+    is_authoritative: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    is_archival_baseline: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     data_frequency: Mapped[str] = mapped_column(String(32), nullable=False, default="DAILY")
     verification_status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="VERIFIED"
     )
     dedup_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+

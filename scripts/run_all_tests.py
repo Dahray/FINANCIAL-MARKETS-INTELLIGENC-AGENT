@@ -44,6 +44,9 @@ from tests.integration.test_phase6_comprehensive_e2e_and_security import (
     test_6_report_generation_pdf_and_excel_integrity,
     test_7_application_security_rbac_and_zero_frontend_secret_leakage,
 )
+from tests.integration.test_stage8_verification_and_research_memory import (
+    run_stage8_verification_suite,
+)
 
 
 def main() -> None:
@@ -68,7 +71,9 @@ def main() -> None:
         ("Phase 6.5", test_5_automation_webhooks_and_secret_authentication),
         ("Phase 6.6", test_6_report_generation_pdf_and_excel_integrity),
         ("Phase 6.7", test_7_application_security_rbac_and_zero_frontend_secret_leakage),
+        ("Stage 8", run_stage8_verification_suite),
     ]
+
 
     start_t = time.time()
     print("=" * 78)

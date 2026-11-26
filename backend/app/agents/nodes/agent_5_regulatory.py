@@ -65,6 +65,11 @@ def run_agent_5_regulatory(state: ResearchGraphState) -> ResearchGraphState:
                 return str(entry["id"])
         return default_src
 
+    quant = state.get("agent_6_quant_output", {})
+    macro = quant.get("macro_indicators_snapshot", {})
+    mpr_live = float(macro.get("NG_CBN_MPR", {}).get("latest_value", 23.00))
+    crr_live = float(macro.get("NG_CBN_CRR_COMMERCIAL", {}).get("latest_value", 50.00))
+
     def _build_deterministic() -> Agent5RegulatoryIntelligenceOutput:
         cbn_src = _find_source_id("cbn")
         sec_src = _find_source_id("sec")
@@ -82,7 +87,7 @@ def run_agent_5_regulatory(state: ResearchGraphState) -> ResearchGraphState:
                     "NGN 200bn National Commercial Banks, NGN 50bn Merchant Banks), excluding retained earnings from qualifying capital."
                 ),
                 compliance_implications=(
-                    "Requires capital verification, CBN/SEC allotment clearance, and strict anti-money-laundering vetting on all capital calls before the March 2026/2027 compliance milestones."
+                    "Requires capital verification, CBN/SEC allotment clearance, and strict anti-money-laundering vetting on all capital calls before compliance milestones."
                 ),
                 capital_or_operational_impact=(
                     "Triggers over NGN 2.2 trillion in primary equity and rights issuance across Nigerian banking groups and potential Tier-2 M&A consolidation."
@@ -99,16 +104,17 @@ def run_agent_5_regulatory(state: ResearchGraphState) -> ResearchGraphState:
                 regulator_code="CBN",
                 regulator_name="Central Bank of Nigeria (CBN)",
                 reference_number="CBN/MPC/COMM/2026",
-                title="Monetary Policy Committee Directive on 50% CRR and NAFEM Electronic FX Matching Surveillance",
+                title=f"CBN Monetary Policy Stance ({mpr_live:.2f}% Verified MPR) & NFEM Electronic FX Matching Surveillance",
                 issued_date=ledger[0]["publication_date"] if ledger else "2026-11-22",
                 policy_summary=(
-                    "Maintenance of 27.50% MPR and 50.00% Commercial Bank CRR alongside mandatory real-time order-book transparency on the NAFEM FX trading system."
+                    f"Official CBN monetary policy rate verified at {mpr_live:.2f}% alongside {crr_live:.0f}% commercial bank CRR "
+                    "and mandatory real-time order-book transparency on the NFEM electronic FX trading system."
                 ),
                 compliance_implications=(
                     "Authorized Dealer banks and treasury desks must comply with strict intraday NOP (Net Open Position) limits and automated FX reporting."
                 ),
                 capital_or_operational_impact=(
-                    "Sterilizes bank excess Naira liquidity, keeping interbank funding costs above 30% and penalizing unhedged FX positions."
+                    "Anchors interbank liquidity discipline and penalizes unhedged FX positions while supporting institutional FX turnover."
                 ),
                 business_opportunities_created=(
                     "Creates strong corporate demand for SEC-regulated Commercial Paper issuance and Money Market Fund liquidity sweeps."
@@ -118,6 +124,7 @@ def run_agent_5_regulatory(state: ResearchGraphState) -> ResearchGraphState:
                 is_official_publication=True,
                 source_register_id=cbn_src,
             ),
+
             RegulatoryEventItemSchema(
                 regulator_code="SEC_NG",
                 regulator_name="Securities and Exchange Commission (SEC Nigeria)",

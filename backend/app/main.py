@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     assistant,
     auth,
     competitors,
+    intelligence_memory,
     macro,
     markets,
     opportunities,
@@ -44,10 +45,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    version="1.0.0",
+    version="2.0.0",
     description=(
         "Institutional AI-Powered Financial Markets Intelligence Platform "
-        "covering Nigerian, African, and Global Financial Markets."
+        "with Verified Source-of-Truth Governance & Historical Research Memory."
     ),
     lifespan=lifespan,
 )
@@ -85,7 +86,7 @@ async def rate_limit_middleware(request: Request, call_next):
     return response
 
 
-# Register all 10 v1 Routers
+# Register all 11 v1 Routers
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(overview.router, prefix=settings.API_V1_STR)
 app.include_router(markets.router, prefix=settings.API_V1_STR)
@@ -96,6 +97,8 @@ app.include_router(regulatory.router, prefix=settings.API_V1_STR)
 app.include_router(reports.router, prefix=settings.API_V1_STR)
 app.include_router(assistant.router, prefix=settings.API_V1_STR)
 app.include_router(webhooks.router, prefix=settings.API_V1_STR)
+app.include_router(intelligence_memory.router, prefix=settings.API_V1_STR)
+
 
 
 @app.get("/health", tags=["System Health"])

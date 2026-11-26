@@ -165,16 +165,19 @@ APPROVED_SOURCES_CATALOG: List[Dict[str, str]] = [
 def compute_text_embedding_768(text_content: str) -> List[float]:
     """
     Compute a 768-dimensional semantic embedding vector.
-    Uses Google Gemini `text-embedding-004` REST endpoint when a valid AIza key is configured;
+    Uses Google Gemini `gemini-embedding-001` REST endpoint (`outputDimensionality=768`)
+    whenever a valid Gemini API key (`AIza...` or `AQ....`) is configured;
     falls back to a deterministic L2-normalized 768-dim token feature hash vector
     so pgvector similarity search always works.
     """
     key = (settings.GEMINI_API_KEY or "").strip()
-    if key.startswith("AIza"):
+    if len(key) > 10 and not any(tok in key.lower() for tok in ("your-", "placeholder", "changeme")):
         try:
             from app.core.ssl_helper import create_http_client
 
-            model_id = settings.GEMINI_EMBEDDING_MODEL.replace("models/", "")
+            model_id = settings.GEMINI_EMBEDDING_MODEL.replace("models/", "").strip()
+            if model_id in ("", "text-embedding-004", "embedding-001"):
+                model_id = "gemini-embedding-001"
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:embedContent"
             with create_http_client(timeout=15) as client:
                 resp = client.post(
@@ -183,6 +186,7 @@ def compute_text_embedding_768(text_content: str) -> List[float]:
                     json={
                         "model": f"models/{model_id}",
                         "content": {"parts": [{"text": text_content[:6000]}]},
+                        "outputDimensionality": 768,
                     },
                 )
                 if resp.status_code == 200:
@@ -251,11 +255,14 @@ class IngestionService:
 
         for pt in points:
             ds = sources_map.get(pt.source_code) or sources_map["NGX_OFFICIAL"]
-            # Load trailing historical values for outlier check
+            # Load trailing LIVE historical values for outlier check (never compare live Tier-1 against stale archival baselines)
             hist_rows = (
                 db.execute(
                     select(MarketTimeseries.value)
-                    .where(MarketTimeseries.symbol == pt.symbol)
+                    .where(
+                        MarketTimeseries.symbol == pt.symbol,
+                        MarketTimeseries.is_archival_baseline == False,  # noqa: E712
+                    )
                     .order_by(MarketTimeseries.publication_date.desc())
                     .limit(30)
                 )
@@ -269,6 +276,9 @@ class IngestionService:
                 historical_values=hist_vals,
                 source_reliability_tier=ds.reliability_tier,
             )
+            if validated_pt.source_tier == "TIER_1_OFFICIAL" and not validated_pt.is_archival_baseline:
+                validated_pt.verification_status = "VERIFIED"
+
 
             exists = db.execute(
                 select(MarketTimeseries.id).where(MarketTimeseries.dedup_hash == dedup_hash)
@@ -295,8 +305,20 @@ class IngestionService:
                 currency_or_unit=validated_pt.currency_or_unit,
                 reporting_period=validated_pt.reporting_period,
                 publication_date=validated_pt.publication_date,
+                effective_date=validated_pt.effective_date or validated_pt.publication_date,
                 retrieval_date=validated_pt.retrieval_date,
                 source_id=ds.id,
+                source_url=validated_pt.source_url or ds.base_url,
+                source_tier=(
+                    "ARCHIVAL_BASELINE"
+                    if validated_pt.is_archival_baseline
+                    else (validated_pt.source_tier or ds.reliability_tier)
+                ),
+                confidence_score=(
+                    45.0 if validated_pt.is_archival_baseline else validated_pt.confidence_score
+                ),
+                is_authoritative=not validated_pt.is_archival_baseline,
+                is_archival_baseline=validated_pt.is_archival_baseline,
                 data_frequency=validated_pt.data_frequency,
                 verification_status=validated_pt.verification_status,
                 quality_flags=validated_pt.quality_flags,
@@ -355,8 +377,20 @@ class IngestionService:
                 currency_or_unit=validated_pt.currency_or_unit,
                 reporting_period=validated_pt.reporting_period,
                 publication_date=validated_pt.publication_date,
+                effective_date=validated_pt.effective_date or validated_pt.publication_date,
                 retrieval_date=validated_pt.retrieval_date,
                 source_id=ds.id,
+                source_url=validated_pt.source_url or ds.base_url,
+                source_tier=(
+                    "ARCHIVAL_BASELINE"
+                    if validated_pt.is_archival_baseline
+                    else (validated_pt.source_tier or ds.reliability_tier)
+                ),
+                confidence_score=(
+                    45.0 if validated_pt.is_archival_baseline else validated_pt.confidence_score
+                ),
+                is_authoritative=not validated_pt.is_archival_baseline,
+                is_archival_baseline=validated_pt.is_archival_baseline,
                 data_frequency=validated_pt.data_frequency,
                 verification_status=validated_pt.verification_status,
                 dedup_hash=dedup_hash,
@@ -412,8 +446,20 @@ class IngestionService:
                 currency_or_unit=validated_pt.currency_or_unit,
                 reporting_period=validated_pt.reporting_period,
                 publication_date=validated_pt.publication_date,
+                effective_date=validated_pt.effective_date or validated_pt.publication_date,
                 retrieval_date=validated_pt.retrieval_date,
                 source_id=ds.id,
+                source_url=validated_pt.source_url or ds.base_url,
+                source_tier=(
+                    "ARCHIVAL_BASELINE"
+                    if validated_pt.is_archival_baseline
+                    else (validated_pt.source_tier or ds.reliability_tier)
+                ),
+                confidence_score=(
+                    45.0 if validated_pt.is_archival_baseline else validated_pt.confidence_score
+                ),
+                is_authoritative=not validated_pt.is_archival_baseline,
+                is_archival_baseline=validated_pt.is_archival_baseline,
                 data_frequency=validated_pt.data_frequency,
                 verification_status=validated_pt.verification_status,
                 dedup_hash=dedup_hash,
@@ -428,6 +474,7 @@ class IngestionService:
             "duplicates_skipped": skipped_duplicates,
             "flagged_count": flagged,
         }
+
 
     @classmethod
     def ingest_research_items(
@@ -524,16 +571,159 @@ class IngestionService:
             "source_register_ids": added_ids,
         }
 
+    _last_live_sweep_ts: float = 0.0
+    _last_live_sweep_result: Optional[Dict[str, Any]] = None
+    _runtime_quota_profile: Optional[Dict[str, Any]] = None
+
+    QUOTA_TIER_PRESETS: Dict[str, Dict[str, Any]] = {
+        "FREE_STARTER": {
+            "quota_tier": "FREE_STARTER",
+            "label": "Free-Tier Starter Protection (Default)",
+            "description": "Protects free API limits (Alpha Vantage 25/day, FMP 250/day, Tavily 1,000/month) with a 15-min cooldown and targeted batch sizes.",
+            "cooldown_seconds": 900,
+            "search_queries_limit": 2,
+            "max_search_results_per_query": 3,
+            "rss_max_results": 6,
+            "fred_history_limit": 15,
+            "fmp_symbols_count": 6,
+            "alpha_vantage_pairs_count": 1,
+        },
+        "STANDARD_PAID": {
+            "quota_tier": "STANDARD_PAID",
+            "label": "Standard Institutional Research (Expanded Quota)",
+            "description": "Balanced expansion for upgraded API plans: 3-min cooldown, 5 sector search queries (8 articles each), 14 FMP symbols, 3 FX pairs, and 60 FRED history points.",
+            "cooldown_seconds": 180,
+            "search_queries_limit": 5,
+            "max_search_results_per_query": 8,
+            "rss_max_results": 15,
+            "fred_history_limit": 60,
+            "fmp_symbols_count": 14,
+            "alpha_vantage_pairs_count": 3,
+        },
+        "ENTERPRISE_UNLIMITED": {
+            "quota_tier": "ENTERPRISE_UNLIMITED",
+            "label": "Enterprise High-Frequency Coverage (Unrestricted)",
+            "description": "Maximum institutional depth: zero cooldown, 8 deep Nigerian/African search queries (15 articles each), 20 FMP global/African symbols, 5 FX pairs, and 250 FRED observations.",
+            "cooldown_seconds": 0,
+            "search_queries_limit": 8,
+            "max_search_results_per_query": 15,
+            "rss_max_results": 30,
+            "fred_history_limit": 250,
+            "fmp_symbols_count": 20,
+            "alpha_vantage_pairs_count": 5,
+        },
+    }
+
+    INSTITUTIONAL_SEARCH_QUERY_POOL: List[str] = [
+        "Nigerian Exchange NGX equities fixed income FMDQ Treasury bills CBN monetary policy",
+        "Nigeria asset management commercial banks fintech SEC PenCom regulatory developments",
+        "Nigerian sovereign Eurobonds DMO bond auction stop rates NAFEM FX turnover liquidity",
+        "Nigeria corporate commercial paper issuances FMDQ private credit infrastructure funds",
+        "Central Bank of Nigeria MPC OMO auction CRR liquidity ratio banking recapitalization",
+        "Nigerian pension fund administrators PFA asset allocation PenCom investment guidelines",
+        "Stanbic IBTC Chapel Hill Denham CardinalStone Meristem United Capital asset management Nigeria",
+        "West Africa sovereign fixed income Ghana Kenya South Africa Eurobond yields commodity prices",
+    ]
+
+    @classmethod
+    def get_quota_profile(cls) -> Dict[str, Any]:
+        """Return active API quota and ingestion depth profile."""
+        if cls._runtime_quota_profile is None:
+            tier = (settings.INGESTION_QUOTA_TIER or "FREE_STARTER").upper()
+            preset = dict(
+                cls.QUOTA_TIER_PRESETS.get(tier, cls.QUOTA_TIER_PRESETS["FREE_STARTER"])
+            )
+            preset["cooldown_seconds"] = settings.INGESTION_COOLDOWN_SECONDS
+            preset["max_search_results_per_query"] = (
+                settings.INGESTION_MAX_SEARCH_RESULTS_PER_QUERY
+            )
+            preset["search_queries_limit"] = settings.INGESTION_SEARCH_QUERIES_LIMIT
+            preset["rss_max_results"] = settings.INGESTION_RSS_MAX_RESULTS
+            preset["fred_history_limit"] = settings.INGESTION_FRED_HISTORY_LIMIT
+            cls._runtime_quota_profile = preset
+        return {
+            **cls._runtime_quota_profile,
+            "available_tiers": list(cls.QUOTA_TIER_PRESETS.values()),
+        }
+
+    @classmethod
+    def update_quota_profile(
+        cls,
+        quota_tier: str,
+        cooldown_seconds: Optional[int] = None,
+        search_queries_limit: Optional[int] = None,
+        max_search_results_per_query: Optional[int] = None,
+        rss_max_results: Optional[int] = None,
+        fred_history_limit: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Switch API quota tier (`FREE_STARTER`, `STANDARD_PAID`, `ENTERPRISE_UNLIMITED`)
+        or customize individual ingestion depth parameters at runtime.
+        """
+        tier_key = quota_tier.upper().strip()
+        if tier_key not in cls.QUOTA_TIER_PRESETS:
+            tier_key = "FREE_STARTER"
+
+        profile = dict(cls.QUOTA_TIER_PRESETS[tier_key])
+        if cooldown_seconds is not None:
+            profile["cooldown_seconds"] = max(0, int(cooldown_seconds))
+        if search_queries_limit is not None:
+            profile["search_queries_limit"] = max(
+                1, min(len(cls.INSTITUTIONAL_SEARCH_QUERY_POOL), int(search_queries_limit))
+            )
+        if max_search_results_per_query is not None:
+            profile["max_search_results_per_query"] = max(
+                1, min(25, int(max_search_results_per_query))
+            )
+        if rss_max_results is not None:
+            profile["rss_max_results"] = max(1, min(50, int(rss_max_results)))
+        if fred_history_limit is not None:
+            profile["fred_history_limit"] = max(5, min(500, int(fred_history_limit)))
+
+        cls._runtime_quota_profile = profile
+        return cls.get_quota_profile()
+
     @classmethod
     def run_live_ingestion_cycle(
         cls,
         db: Session,
         search_queries: Optional[List[str]] = None,
+        force: bool = False,
+        cooldown_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Execute a full ingestion sweep across Nigerian, Global, Macro, Regulatory,
         and Search providers, persisting all validated records to the database.
+        Dynamically scales depth and cooldown according to the active API Quota Profile.
         """
+        import time
+
+        profile = cls.get_quota_profile()
+        effective_cooldown = (
+            cooldown_seconds
+            if cooldown_seconds is not None
+            else int(profile.get("cooldown_seconds", 900))
+        )
+        active_tier = str(profile.get("quota_tier", "FREE_STARTER"))
+        max_search_res = int(profile.get("max_search_results_per_query", 3))
+        queries_limit = int(profile.get("search_queries_limit", 2))
+        rss_limit = int(profile.get("rss_max_results", 6))
+        fred_limit = int(profile.get("fred_history_limit", 15))
+
+        now_ts = time.time()
+        if (
+            not force
+            and effective_cooldown > 0
+            and cls._last_live_sweep_result is not None
+            and (now_ts - cls._last_live_sweep_ts) < effective_cooldown
+        ):
+            cached = dict(cls._last_live_sweep_result)
+            cached["quota_guard_cached"] = True
+            cached["active_quota_tier"] = active_tier
+            cached["cooldown_seconds"] = effective_cooldown
+            cached["seconds_since_last_sweep"] = round(now_ts - cls._last_live_sweep_ts, 1)
+            return cached
+
         cls.ensure_default_data_sources(db)
 
         cbn = CBNDataProvider()
@@ -548,41 +738,63 @@ class IngestionService:
         rss = PublicFinancialRSSProvider()
 
         market_pts: List[IngestedMarketPoint] = []
+        market_pts.extend(cbn.fetch_market_timeseries())
         market_pts.extend(ngx.fetch_market_timeseries())
         market_pts.extend(fmdq.fetch_market_timeseries())
-        market_pts.extend(fmp.fetch_market_timeseries())
-        market_pts.extend(av.fetch_market_timeseries())
-        market_pts.extend(fred.fetch_market_timeseries())
+        market_pts.extend(fmp.fetch_market_timeseries(symbol_tier=active_tier))
+        market_pts.extend(av.fetch_market_timeseries(quota_tier=active_tier))
+        market_pts.extend(fred.fetch_market_timeseries(history_limit=fred_limit))
 
         yield_pts: List[IngestedYieldPoint] = []
-        yield_pts.extend(fred.fetch_yield_curves())
+        yield_pts.extend(cbn.fetch_yield_curves())
+        yield_pts.extend(fred.fetch_yield_curves(history_limit=fred_limit))
 
         macro_pts: List[IngestedMacroPoint] = []
         macro_pts.extend(cbn.fetch_macro_indicators())
-        macro_pts.extend(fred.fetch_macro_indicators())
+        macro_pts.extend(fred.fetch_macro_indicators(history_limit=fred_limit))
 
         research_items: List[IngestedResearchItem] = []
         research_items.extend(cbn.fetch_regulatory_publications())
         research_items.extend(reg_monitor.fetch_regulatory_publications())
-        research_items.extend(rss.search_financial_intelligence(max_results=6))
+        research_items.extend(rss.search_financial_intelligence(max_results=rss_limit))
 
-        queries = search_queries or [
-            "Nigerian Exchange NGX equities fixed income FMDQ Treasury bills CBN monetary policy",
-            "Nigeria asset management commercial banks fintech SEC PenCom regulatory developments",
-        ]
+        queries = search_queries or cls.INSTITUTIONAL_SEARCH_QUERY_POOL[:queries_limit]
         for q in queries:
-            research_items.extend(tavily.search_financial_intelligence(q, max_results=3))
-            research_items.extend(gsearch.search_financial_intelligence(q, max_results=3))
+            research_items.extend(
+                tavily.search_financial_intelligence(q, max_results=max_search_res)
+            )
+            research_items.extend(
+                gsearch.search_financial_intelligence(q, max_results=max_search_res)
+            )
 
         m_stats = cls.ingest_market_points(db, market_pts)
         y_stats = cls.ingest_yield_points(db, yield_pts)
         mac_stats = cls.ingest_macro_points(db, macro_pts)
         doc_stats = cls.ingest_research_items(db, research_items)
 
-        return {
+        # Stage 2 Verification Engine: Reclassify legacy seed baselines & resolve cross-source discrepancies
+        from app.services.verification_service import FinancialDataVerificationEngine
+
+        hygiene_stats = FinancialDataVerificationEngine.mark_legacy_seed_records_as_archival(db)
+        discrepancy_stats = FinancialDataVerificationEngine.run_discrepancy_detection_and_resolution(db)
+
+        result = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "quota_guard_cached": False,
+            "active_quota_tier": active_tier,
+            "cooldown_seconds": effective_cooldown,
+            "queries_executed": len(queries),
+            "max_search_results_per_query": max_search_res,
+            "fred_history_limit": fred_limit,
             "market_ingestion": m_stats,
             "yield_curve_ingestion": y_stats,
             "macro_ingestion": mac_stats,
             "research_and_regulatory_ingestion": doc_stats,
+            "verification_hygiene": hygiene_stats,
+            "discrepancy_audit": discrepancy_stats,
         }
+        cls._last_live_sweep_ts = now_ts
+        cls._last_live_sweep_result = result
+        return result
+
+
