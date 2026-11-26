@@ -99,6 +99,7 @@ class Settings(BaseSettings):
 
     GOOGLE_DRIVE_ENABLED: bool = False
     GOOGLE_APPLICATION_CREDENTIALS: str = "./secrets/google_service_account.json"
+    GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL: str = ""
     GOOGLE_DRIVE_REPORTS_FOLDER_ID: str = ""
 
     EMAIL_DELIVERY_ENABLED: bool = False

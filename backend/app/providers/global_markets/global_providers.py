@@ -16,6 +16,7 @@ import httpx
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.ssl_helper import create_http_client
 from app.providers.base import (
     BaseMacroDataProvider,
     BaseMarketDataProvider,
@@ -67,7 +68,7 @@ class FMPDataProvider(BaseMarketDataProvider):
         url = f"{self.BASE_URL}/quote/{symbol_csv}"
 
         try:
-            with httpx.Client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
+            with create_http_client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
                 resp = client.get(url, params={"apikey": settings.FMP_API_KEY})
                 if resp.status_code == 200 and isinstance(resp.json(), list):
                     for item in resp.json():
@@ -131,7 +132,7 @@ class AlphaVantageDataProvider(BaseMarketDataProvider):
         points: List[IngestedMarketPoint] = []
         now_utc = datetime.now(timezone.utc)
         try:
-            with httpx.Client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
+            with create_http_client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
                 resp = client.get(
                     self.BASE_URL,
                     params={
@@ -227,7 +228,7 @@ class FREDDataProvider(BaseMacroDataProvider, BaseMarketDataProvider):
         """Fetch latest `limit` observations for a FRED series via JSON API or official CSV."""
         observations: List[Tuple[datetime, float]] = []
         try:
-            with httpx.Client(
+            with create_http_client(
                 timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
                 follow_redirects=True,
             ) as client:

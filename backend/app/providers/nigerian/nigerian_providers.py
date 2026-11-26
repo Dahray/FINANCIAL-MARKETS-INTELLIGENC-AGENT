@@ -25,6 +25,7 @@ except ImportError:
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import PromptInjectionSanitizer
+from app.core.ssl_helper import create_http_client
 from app.providers.base import (
     BaseMacroDataProvider,
     BaseMarketDataProvider,
@@ -61,7 +62,7 @@ class CBNDataProvider(BaseMacroDataProvider, BaseRegulatoryProvider):
         results: List[IngestedMacroPoint] = []
         now_utc = datetime.now(timezone.utc)
         try:
-            with httpx.Client(
+            with create_http_client(
                 timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
                 headers=_http_headers(),
                 follow_redirects=True,
@@ -103,7 +104,7 @@ class CBNDataProvider(BaseMacroDataProvider, BaseRegulatoryProvider):
         now_utc = datetime.now(timezone.utc)
         url = f"{settings.CBN_BASE_URL}/Documents/circulars.asp"
         try:
-            with httpx.Client(
+            with create_http_client(
                 timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
                 headers=_http_headers(),
                 follow_redirects=True,
@@ -160,7 +161,7 @@ class NGXDataProvider(BaseMarketDataProvider):
         points: List[IngestedMarketPoint] = []
         now_utc = datetime.now(timezone.utc)
         try:
-            with httpx.Client(
+            with create_http_client(
                 timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
                 headers=_http_headers(),
                 follow_redirects=True,
@@ -217,7 +218,7 @@ class FMDQDMODataProvider(BaseMarketDataProvider):
         points: List[IngestedMarketPoint] = []
         now_utc = datetime.now(timezone.utc)
         try:
-            with httpx.Client(
+            with create_http_client(
                 timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
                 headers=_http_headers(),
                 follow_redirects=True,
@@ -276,7 +277,7 @@ class NigerianRegulatorsMonitorProvider(BaseRegulatoryProvider):
     def fetch_regulatory_publications(self) -> List[IngestedResearchItem]:
         items: List[IngestedResearchItem] = []
         now_utc = datetime.now(timezone.utc)
-        with httpx.Client(
+        with create_http_client(
             timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
             headers=_http_headers(),
             follow_redirects=True,

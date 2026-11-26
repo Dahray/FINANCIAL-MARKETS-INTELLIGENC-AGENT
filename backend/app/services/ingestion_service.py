@@ -165,23 +165,30 @@ APPROVED_SOURCES_CATALOG: List[Dict[str, str]] = [
 def compute_text_embedding_768(text_content: str) -> List[float]:
     """
     Compute a 768-dimensional semantic embedding vector.
-    Uses Google Gemini `text-embedding-004` when `GEMINI_API_KEY` is configured;
+    Uses Google Gemini `text-embedding-004` REST endpoint when a valid AIza key is configured;
     falls back to a deterministic L2-normalized 768-dim token feature hash vector
-    when offline or awaiting credentials so pgvector similarity search always works.
+    so pgvector similarity search always works.
     """
-    if settings.GEMINI_API_KEY:
+    key = (settings.GEMINI_API_KEY or "").strip()
+    if key.startswith("AIza"):
         try:
-            from google import genai
+            from app.core.ssl_helper import create_http_client
 
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            resp = client.models.embed_content(
-                model=settings.GEMINI_EMBEDDING_MODEL,
-                contents=text_content[:6000],
-            )
-            if resp.embeddings and resp.embeddings[0].values:
-                vals = list(resp.embeddings[0].values)
-                if len(vals) == 768:
-                    return [float(x) for x in vals]
+            model_id = settings.GEMINI_EMBEDDING_MODEL.replace("models/", "")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:embedContent"
+            with create_http_client(timeout=15) as client:
+                resp = client.post(
+                    url,
+                    params={"key": key},
+                    json={
+                        "model": f"models/{model_id}",
+                        "content": {"parts": [{"text": text_content[:6000]}]},
+                    },
+                )
+                if resp.status_code == 200:
+                    vals = resp.json().get("embedding", {}).get("values", [])
+                    if len(vals) == 768:
+                        return [float(x) for x in vals]
         except Exception as exc:
             logger.info("Gemini embedding fallback activated: %s", exc)
 

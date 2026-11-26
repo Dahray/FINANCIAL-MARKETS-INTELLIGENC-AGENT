@@ -18,6 +18,7 @@ import httpx
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import PromptInjectionSanitizer
+from app.core.ssl_helper import create_http_client
 from app.providers.base import BaseSearchProvider, IngestedResearchItem
 
 logger = get_logger("fmip.providers.search")
@@ -92,7 +93,7 @@ class TavilySearchProvider(BaseSearchProvider):
         items: List[IngestedResearchItem] = []
         now_utc = datetime.now(timezone.utc)
         try:
-            with httpx.Client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
+            with create_http_client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
                 resp = client.post(
                     self.API_URL,
                     json={
@@ -153,7 +154,7 @@ class GoogleCustomSearchProvider(BaseSearchProvider):
         items: List[IngestedResearchItem] = []
         now_utc = datetime.now(timezone.utc)
         try:
-            with httpx.Client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
+            with create_http_client(timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS) as client:
                 resp = client.get(
                     self.API_URL,
                     params={
@@ -216,7 +217,7 @@ class PublicFinancialRSSProvider(BaseSearchProvider):
         now_utc = datetime.now(timezone.utc)
         q_lower = query.lower().strip()
 
-        with httpx.Client(
+        with create_http_client(
             timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
             headers={"User-Agent": settings.DATA_PROVIDER_USER_AGENT},
             follow_redirects=True,
