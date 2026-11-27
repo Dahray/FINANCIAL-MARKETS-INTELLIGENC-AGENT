@@ -263,6 +263,39 @@ def run_agent_8_chief_editor(state: ResearchGraphState) -> ResearchGraphState:
         f"{len(strat_opps)} strategic business initiatives while comparing every finding against prior institutional memory."
     )
 
+    inst_pkg = quant.get("institutional_market_package", {})
+    global_macro_summary = inst_pkg.get("global_macro_summary", {})
+    global_eq_table = inst_pkg.get("global_equities_table", [])
+    ng_eq_dash = inst_pkg.get("nigerian_equities_dashboard", {})
+    global_10y_table = inst_pkg.get("global_10y_bonds_table", [])
+    fi_auctions = inst_pkg.get("nigerian_fixed_income_auctions", {})
+    major_fx_table = inst_pkg.get("major_currencies_table", [])
+    commodities_table = inst_pkg.get("commodities_table", [])
+    cross_market_matrix = inst_pkg.get("cross_market_transmission_matrix", [])
+    asset_implications = inst_pkg.get("asset_class_implications", [])
+    structured_cal = inst_pkg.get("week_ahead_calendar", {})
+    if structured_cal.get("combined"):
+        next_week_calendar = structured_cal["combined"]
+
+    # Build enriched Global Macro commentary from verified live FRED indicators
+    us_unemp = global_macro_summary.get("us_unemployment_pct")
+    us_nfp = global_macro_summary.get("us_nfp_change_k")
+    us_jolts = global_macro_summary.get("us_jolts_openings_k")
+    us_cpi = global_macro_summary.get("us_cpi_yoy_pct")
+    us_fed = global_macro_summary.get("us_fed_funds_pct")
+    ecb_rate = global_macro_summary.get("ecb_policy_rate_pct")
+
+    global_macro_brief = (
+        f"GLOBAL MACROECONOMIC MONITOR (VERIFIED TIER-1 FRED/BLS/ECB): "
+        f"US Federal Funds Rate stands at {f'{us_fed:.2f}%' if us_fed is not None else 'tracked via FRED'} alongside ECB Deposit Facility Rate at "
+        f"{f'{ecb_rate:.2f}%' if ecb_rate is not None else 'tracked via FRED'}. "
+        f"US labour indicators show Unemployment at {f'{us_unemp:.1f}%' if us_unemp is not None else 'N/A'}, "
+        f"Non-Farm Payrolls monthly change at {f'{us_nfp:+.0f}k' if us_nfp is not None else 'N/A'}, "
+        f"JOLTS Job Openings at {f'{us_jolts / 1000.0:.2f}M' if us_jolts is not None else 'N/A'}, "
+        f"and US Headline CPI at {f'{us_cpi:.2f}% YoY' if us_cpi is not None else 'N/A'}. "
+        f"{global_macro_summary.get('pmi_licensing_note', '')}"
+    )
+
     sections_16: Dict[str, Dict[str, Any]] = {
         "section_01_executive_summary": {
             "section_number": 1,
@@ -279,63 +312,78 @@ def run_agent_8_chief_editor(state: ResearchGraphState) -> ResearchGraphState:
         },
         "section_02_nigerian_financial_market_performance": {
             "section_number": 2,
-            "title": "2. Nigerian Financial Market Performance",
+            "title": "2. Nigerian Financial Market & Equity Performance",
             "narrative": a1.get("ngx_market_narrative", ""),
             "performance_table": [
                 m for m in a1.get("major_market_movements", []) if m.get("symbol") != "SPX"
             ],
+            "nigerian_equities_dashboard": ng_eq_dash,
+            "top_gainers": ng_eq_dash.get("top_gainers", []),
+            "top_decliners": ng_eq_dash.get("top_decliners", []),
         },
-
         "section_03_global_market_performance": {
             "section_number": 3,
-            "title": "3. Global Market Performance",
+            "title": "3. Global Equity & Commodity Market Performance",
             "narrative": f"{a1.get('global_markets_narrative', '')} {a1.get('commodities_narrative', '')}",
             "global_benchmarks": [
                 m for m in a1.get("major_market_movements", []) if m.get("symbol") in ("SPX", "BRENT", "BONNYLIGHT")
             ],
+            "global_equities_table": global_eq_table,
+            "missing_paid_global_equities": inst_pkg.get("missing_paid_global_equities", []),
+            "commodities_table": commodities_table,
         },
         "section_04_macroeconomic_developments": {
             "section_number": 4,
-            "title": "4. Macroeconomic Developments",
+            "title": "4. Global & Nigerian Macroeconomic Developments",
             "narrative": (
+                f"{global_macro_brief}\n\n"
                 f"{a2.get('macro_executive_overview', '')}\n\n"
                 f"{a2.get('inflation_and_monetary_policy_analysis', '')}\n\n"
                 f"{a2.get('gdp_manufacturing_and_employment_analysis', '')}\n\n"
                 f"{a2.get('fiscal_borrowing_and_debt_sustainability_analysis', '')}"
             ),
+            "global_macro_summary": global_macro_summary,
             "transmission_mechanisms": a2.get("transmission_mechanisms", {}),
+            "cross_market_transmission_matrix": cross_market_matrix,
             "macro_table": a2.get("indicator_summary_table", []),
         },
         "section_05_fixed_income_market_analysis": {
             "section_number": 5,
-            "title": "5. Fixed-Income Market Analysis",
+            "title": "5. Global & Nigerian Fixed-Income Market Analysis",
             "narrative": f"{a1.get('fixed_income_and_yield_curve_narrative', '')}\n\n{a3.get('fixed_income_bonds_and_treasury_bills_analysis', '')}",
             "yield_curve_analytics": yc_m,
             "fgn_10y_bond_risk": quant.get("fixed_income_and_yield_curve", {}).get("fgn_10y_bond_risk", {}),
+            "global_10y_bonds_table": global_10y_table,
+            "nigerian_fixed_income_auctions": fi_auctions,
         },
         "section_06_fx_market_analysis": {
             "section_number": 6,
-            "title": "6. FX Market Analysis",
+            "title": "6. Currency, External Reserves & Commodity Analysis",
             "narrative": f"{a1.get('fx_and_money_market_narrative', '')}\n\n{a2.get('external_reserves_fx_and_trade_balance_analysis', '')}",
             "fx_metrics": fx_m,
             "fx_forecast": forecasts_m.get("NGNUSD.NAFEM", {}),
+            "major_currencies_table": major_fx_table,
+            "commodities_table": commodities_table,
         },
         "section_07_equity_market_analysis": {
             "section_number": 7,
-            "title": "7. Equity Market Analysis",
+            "title": "7. Equity Valuation, Breadth & Technical Analysis",
             "narrative": a3.get("equities_fundamental_and_valuation_analysis", ""),
             "equity_valuation_table": a3.get("equity_valuation_summary_table", []),
             "ngx_asi_metrics": ngx_m,
+            "top_gainers": ng_eq_dash.get("top_gainers", []),
+            "top_decliners": ng_eq_dash.get("top_decliners", []),
         },
         "section_08_financial_services_industry_intelligence": {
             "section_number": 8,
-            "title": "8. Financial Services Industry Intelligence",
+            "title": "8. Financial Services Industry & Asset-Class Implications",
             "narrative": (
                 f"{a3.get('money_market_and_investment_funds_analysis', '')}\n\n"
                 f"{a3.get('alternatives_and_private_equity_analysis', '')}\n\n"
                 f"{a7.get('strategic_executive_synthesis', '')}"
             ),
             "service_line_playbooks": a7.get("service_line_playbooks", {}),
+            "asset_class_implications": asset_implications,
         },
         "section_09_competitor_intelligence": {
             "section_number": 9,
@@ -350,7 +398,7 @@ def run_agent_8_chief_editor(state: ResearchGraphState) -> ResearchGraphState:
         },
         "section_10_regulatory_developments": {
             "section_number": 10,
-            "title": "10. Regulatory Developments",
+            "title": "10. Regulatory & Policy Developments",
             "narrative": (
                 f"{a5.get('regulatory_executive_summary', '')}\n\n"
                 f"{a5.get('cbn_and_monetary_regulation_update', '')}\n\n"
@@ -361,14 +409,16 @@ def run_agent_8_chief_editor(state: ResearchGraphState) -> ResearchGraphState:
         },
         "section_11_investment_opportunity_radar": {
             "section_number": 11,
-            "title": "11. Investment Opportunity Radar",
+            "title": "11. Investment Opportunity Radar (Findings vs Theses)",
             "narrative": (
                 f"Our Continuous Investment Opportunity Radar evaluated Nigerian and African asset classes across 7 quantitative "
-                f"and qualitative dimensions, approving {len(inv_opps)} high-conviction investment opportunities and withholding "
-                f"{len(a3.get('held_opportunities_insufficient_evidence', []))} candidate thesis under the Evidence Quality Gate."
+                f"and qualitative dimensions, approving {len(inv_opps)} high-conviction investment theses and withholding "
+                f"{len(a3.get('held_opportunities_insufficient_evidence', []))} candidate thesis under the Evidence Quality Gate. "
+                "Research findings are explicitly separated from actionable investment theses and invalidation conditions."
             ),
             "approved_investment_opportunities": inv_opps,
             "withheld_insufficient_evidence": a3.get("held_opportunities_insufficient_evidence", []),
+            "asset_class_implications": asset_implications,
         },
         "section_12_strategic_business_opportunities": {
             "section_number": 12,
@@ -382,24 +432,28 @@ def run_agent_8_chief_editor(state: ResearchGraphState) -> ResearchGraphState:
         },
         "section_13_risks_and_market_outlook": {
             "section_number": 13,
-            "title": "13. Risks, Quantitative Forecasts and Market Outlook",
+            "title": "13. Risks, Cross-Market Transmission & Research Team Outlook",
             "narrative": (
                 "All forecasts below are generated by validated statistical and machine learning models (ARIMA, Holt-Winters ETS, Ridge Autoregressive) "
-                "with expanding-window walk-forward historical backtesting. Historical performance is strictly separated from forward projections."
+                "with expanding-window walk-forward historical backtesting. Historical performance is strictly separated from forward projections, "
+                "and observed statistical correlations are strictly distinguished from established causal transmission mechanisms."
             ),
             "forecasts_and_backtests": forecasts_m,
             "scenario_stress_test": quant.get("scenario_stress_test", {}),
             "econometrics_summary": quant.get("econometrics", {}),
+            "cross_market_transmission_matrix": cross_market_matrix,
         },
         "section_14_next_week_economic_and_financial_calendar": {
             "section_number": 14,
-            "title": "14. Next Week's Economic and Financial Calendar",
-            "narrative": "Key domestic and international macroeconomic, auction, and regulatory catalysts for the upcoming trading week:",
+            "title": "14. Key Expectations & Economic Calendar for the Week Ahead",
+            "narrative": "Key domestic (Nigeria) and international macroeconomic releases, sovereign auctions, and policy catalysts for the week ahead:",
             "calendar_events": next_week_calendar,
+            "global_calendar": structured_cal.get("global", []),
+            "nigeria_calendar": structured_cal.get("nigeria", []),
         },
         "section_15_management_recommendations": {
             "section_number": 15,
-            "title": "15. Management Recommendations",
+            "title": "15. Strategic Implications & Management Recommendations",
             "narrative": "Actionable decision-support recommendations for the Executive Committee, Chief Investment Officer, and Business Unit Heads:",
             "recommendations": a7.get("management_recommendations", []),
         },
@@ -441,5 +495,6 @@ def run_agent_8_chief_editor(state: ResearchGraphState) -> ResearchGraphState:
         "sections": sections_16,
         "editorial_review": editorial_review,
         "developments_11q": consolidated_developments,
+        "institutional_market_package": inst_pkg,
     }
     return state

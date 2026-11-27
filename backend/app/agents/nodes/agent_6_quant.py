@@ -273,6 +273,15 @@ def run_agent_6_quant(state: ResearchGraphState, db: Session) -> ResearchGraphSt
 
     db.commit()
 
+    from app.services.institutional_research_analytics import InstitutionalMarketResearchAssembler
+
+    institutional_pkg = InstitutionalMarketResearchAssembler.build_complete_market_package(
+        db=db,
+        period_end_iso=state.get("period_end_iso", datetime.now(timezone.utc).isoformat()),
+        macro_snapshot=macro_snapshot,
+        econometrics=econometrics_output,
+    )
+
     state["agent_6_quant_output"] = {
         "computed_at_utc": datetime.now(timezone.utc).isoformat(),
         "historical_market_metrics": market_metrics,
@@ -282,6 +291,7 @@ def run_agent_6_quant(state: ResearchGraphState, db: Session) -> ResearchGraphSt
         "equity_valuations_and_ratios": equity_valuations,
         "scenario_stress_test": scenario_stress_test,
         "forecasts_and_backtests": forecasts_output,
+        "institutional_market_package": institutional_pkg,
         "all_independent_math_checks_passed": True,
     }
     return state

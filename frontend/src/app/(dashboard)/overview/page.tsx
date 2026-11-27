@@ -119,13 +119,13 @@ export default function OverviewPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="emerald">VERIFIED SOURCE-OF-TRUTH TERMINAL</Badge>
-            <span className="font-mono text-xs text-slate-400">
+            <Badge variant="orange">SOHCAHTOA VERIFIED INTELLIGENCE TERMINAL</Badge>
+            <span className="font-mono text-xs text-stone-400">
               Report Code: {data?.latest_report_summary?.report_code || "Loading..."}
             </span>
             <Link
               href="/data-accuracy"
-              className="text-[11px] font-mono text-sky-400 hover:underline"
+              className="text-[11px] font-mono text-orange-400 hover:underline"
             >
               Inspect Data Accuracy & Freshness Audit →
             </Link>
@@ -133,7 +133,7 @@ export default function OverviewPage() {
           <h1 className="mt-1 text-2xl font-bold text-white">
             Executive Financial Markets Intelligence Overview
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-stone-400">
             Nigeria, African & Global Markets • Tier-1 Official CBN/NGX/FMDQ/FRED Verification • Supervised by Agent 8 & Agent 6
           </p>
         </div>
@@ -142,17 +142,17 @@ export default function OverviewPage() {
           <button
             onClick={handleRunCycle}
             disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-white shadow transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-white shadow shadow-orange-600/30 transition-colors"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             {loading ? "Verifying Live Feeds & Running 8 Agents..." : "Refresh Live CBN Data & Run 8 Agents"}
           </button>
           <Link
             href="/research-reports"
-            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200"
+            className="flex items-center gap-1.5 rounded-lg border border-orange-500/40 bg-stone-900 hover:bg-stone-800 px-3.5 py-2 text-xs font-semibold text-orange-200"
           >
-            <FileText className="h-3.5 w-3.5 text-sky-400" />
-            16-Section Friday Report
+            <FileText className="h-3.5 w-3.5 text-orange-400" />
+            Institutional Friday Report
           </Link>
         </div>
       </div>
@@ -280,15 +280,15 @@ export default function OverviewPage() {
 
 
       {/* The 5 Core Strategic Questions Executive Matrix (Final Objective) */}
-      <Card className="border-emerald-800/50 bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-emerald-950/20">
+      <Card className="border-orange-500/40 bg-gradient-to-br from-stone-900/95 via-stone-900/90 to-orange-950/25">
         <CardHeader className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-400" />
+            <Sparkles className="h-4 w-4 text-orange-400" />
             <CardTitle>
               Executive Command Brief — The Five Core Strategic Questions
             </CardTitle>
           </div>
-          <Badge variant="emerald">EDITOR-VERIFIED & CITATION-BACKED</Badge>
+          <Badge variant="orange">EDITOR-VERIFIED & CITATION-BACKED</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -365,8 +365,8 @@ export default function OverviewPage() {
                 onClick={() => setSelectedDevIdx(idx)}
                 className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
                   selectedDevIdx === idx
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    ? "bg-orange-600 text-white shadow-sm shadow-orange-600/30"
+                    : "bg-stone-800 text-stone-300 hover:bg-stone-700"
                 }`}
               >
                 Development #{idx + 1} ({d.domain})

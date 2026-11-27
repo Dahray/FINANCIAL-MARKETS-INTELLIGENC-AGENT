@@ -6,9 +6,9 @@ Knowledge Graph & Interactive Scenario Stress-Testing Endpoints
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -130,3 +130,28 @@ def run_custom_scenario_stress_test(
         govt_borrowing_shock_pct=payload.govt_borrowing_shock_pct,
         portfolio_value_ngn=payload.portfolio_value_ngn,
     )
+
+
+@router.post("/ingest-pdf")
+async def ingest_institutional_pdf_report(
+    file: UploadFile = File(...),
+    title: Optional[str] = Query(default=None),
+    source_code: str = Query(default="CBN_OFFICIAL"),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Ingest and analyze an external institutional PDF report (e.g., CBN MPC Communique,
+    NBS CPI/GDP release, DMO Debt Bulletin, IMF WEO, or Market Research PDF), sanitize
+    against prompt injection, extract numerical metrics/tables, and index 768-dim chunks.
+    """
+    from app.services.pdf_research_parser import InstitutionalPDFResearchParser
+
+    pdf_bytes = await file.read()
+    return InstitutionalPDFResearchParser.ingest_pdf_into_research_memory(
+        db=db,
+        pdf_bytes=pdf_bytes,
+        filename=file.filename or "institutional_report.pdf",
+        title=title,
+        source_code=source_code,
+    )
+

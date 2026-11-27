@@ -477,6 +477,90 @@ class CBNDataProvider(BaseMacroDataProvider, BaseMarketDataProvider, BaseRegulat
                             verification_status="VERIFIED",
                         )
                     )
+
+            # 2. Official CBN Open Market Operations (OMO) Auctions (`/api/GetAllSecuritiesOMO`)
+            omo_rows = _cbn_get_json(client, f"{base}/api/GetAllSecuritiesOMO")
+            if isinstance(omo_rows, list):
+                for row in omo_rows[:30]:
+                    dt = _parse_cbn_date(str(row.get("auctionDate", "")))
+                    rate_val = _safe_float(row.get("rate"))
+                    if not dt or rate_val is None or rate_val <= 0:
+                        continue
+                    tenor_digits = re.sub(r"[^0-9]", "", str(row.get("tenor", "")))
+                    if not tenor_digits:
+                        continue
+                    t_days = int(tenor_digits)
+                    if t_days < 14 or t_days > 400:
+                        continue
+                    t_lbl = f"{t_days}D"
+                    t_yrs = round(t_days / 365.0, 4)
+                    sub = _safe_float(row.get("totalSubscription"))
+                    offered = _safe_float(row.get("amtOffered"))
+                    btc = round(sub / offered, 2) if (sub and offered and offered > 0) else None
+                    points.append(
+                        IngestedYieldPoint(
+                            curve_name="NGN_OMO_CBN",
+                            instrument_type="OMO",
+                            tenor_label=t_lbl,
+                            tenor_days=t_days,
+                            tenor_years=t_yrs,
+                            indicator_name=f"CBN OMO Auction {t_lbl} Stop Rate",
+                            value=rate_val,
+                            bid_to_cover=btc,
+                            currency_or_unit="PERCENT",
+                            reporting_period=dt.strftime("%Y-%m-%d"),
+                            publication_date=dt,
+                            effective_date=dt,
+                            source_code=self.provider_code,
+                            source_url=f"{base}/api/GetAllSecuritiesOMO",
+                            source_tier="TIER_1_OFFICIAL",
+                            confidence_score=99.0,
+                            is_archival_baseline=False,
+                            data_frequency="WEEKLY",
+                            verification_status="VERIFIED",
+                        )
+                    )
+
+            # 3. Official CBN/DMO FGN Bond Primary Auctions (`/api/GetAllSecuritiesFGNBond`)
+            bond_rows = _cbn_get_json(client, f"{base}/api/GetAllSecuritiesFGNBond")
+            if isinstance(bond_rows, list):
+                for row in bond_rows[:20]:
+                    dt = _parse_cbn_date(str(row.get("auctionDate", "")))
+                    rate_val = _safe_float(row.get("rate"))
+                    if not dt or rate_val is None or rate_val <= 0:
+                        continue
+                    tenor_digits = re.sub(r"[^0-9]", "", str(row.get("tenor", "")))
+                    if not tenor_digits:
+                        continue
+                    yrs = int(tenor_digits)
+                    if yrs < 2 or yrs > 35:
+                        continue
+                    sub = _safe_float(row.get("totalSubscription"))
+                    offered = _safe_float(row.get("amtOffered"))
+                    btc = round(sub / offered, 2) if (sub and offered and offered > 0) else None
+                    points.append(
+                        IngestedYieldPoint(
+                            curve_name="NGN_FGN_BOND_AUCTION",
+                            instrument_type="FGN_BOND",
+                            tenor_label=f"{yrs}Y",
+                            tenor_days=yrs * 365,
+                            tenor_years=float(yrs),
+                            indicator_name=f"FGN Bond Primary Auction {yrs}Y Marginal Rate",
+                            value=rate_val,
+                            bid_to_cover=btc,
+                            currency_or_unit="PERCENT",
+                            reporting_period=dt.strftime("%Y-%m-%d"),
+                            publication_date=dt,
+                            effective_date=dt,
+                            source_code=self.provider_code,
+                            source_url=f"{base}/api/GetAllSecuritiesFGNBond",
+                            source_tier="TIER_1_OFFICIAL",
+                            confidence_score=98.0,
+                            is_archival_baseline=False,
+                            data_frequency="MONTHLY",
+                            verification_status="VERIFIED",
+                        )
+                    )
         return points
 
     def fetch_regulatory_publications(self) -> List[IngestedResearchItem]:

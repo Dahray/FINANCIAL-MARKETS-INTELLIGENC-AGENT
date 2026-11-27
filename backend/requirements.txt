@@ -43,7 +43,8 @@ beautifulsoup4>=4.12.3
 lxml>=5.3.0
 pypdf>=5.1.0
 
-# Reporting & Delivery (PDF, Excel, Google Drive)
+# Reporting & Delivery (PDF, Charts, Excel, Google Drive)
+matplotlib>=3.9.0
 reportlab>=4.2.5
 openpyxl>=3.1.5
 Pillow>=11.0.0

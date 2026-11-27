@@ -11,7 +11,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-xl border border-slate-800/90 bg-slate-900/75 backdrop-blur-sm shadow-lg ${className}`}
+      className={`rounded-xl border border-stone-800/90 bg-stone-900/80 backdrop-blur-sm shadow-lg ${className}`}
     >
       {children}
     </div>
@@ -26,7 +26,7 @@ export function CardHeader({
   className?: string;
 }) {
   return (
-    <div className={`border-b border-slate-800/80 px-5 py-4 ${className}`}>
+    <div className={`border-b border-stone-800/80 px-5 py-4 ${className}`}>
       {children}
     </div>
   );
@@ -40,7 +40,7 @@ export function CardTitle({
   className?: string;
 }) {
   return (
-    <h3 className={`text-sm font-semibold tracking-wide text-slate-100 uppercase ${className}`}>
+    <h3 className={`text-sm font-semibold tracking-wide text-stone-100 uppercase ${className}`}>
       {children}
     </h3>
   );
@@ -62,12 +62,13 @@ export function Badge({
   className = "",
 }: {
   children: React.ReactNode;
-  variant?: "default" | "emerald" | "amber" | "rose" | "sky" | "purple" | "slate";
+  variant?: "default" | "orange" | "emerald" | "amber" | "rose" | "sky" | "purple" | "slate";
   className?: string;
 }) {
   const styles: Record<string, string> = {
-    default: "bg-slate-800 text-slate-200 border-slate-700",
-    slate: "bg-slate-800/90 text-slate-300 border-slate-700",
+    default: "bg-stone-800 text-stone-200 border-stone-700",
+    slate: "bg-stone-800/90 text-stone-300 border-stone-700",
+    orange: "bg-orange-950/90 text-orange-300 border-orange-600/60",
     emerald: "bg-emerald-950/80 text-emerald-300 border-emerald-700/60",
     amber: "bg-amber-950/80 text-amber-300 border-amber-700/60",
     rose: "bg-rose-950/80 text-rose-300 border-rose-700/60",
@@ -105,16 +106,16 @@ export function MetricStatCard({
   const goodColor = invertColor ? !isPositive : isPositive;
 
   return (
-    <Card className="p-4 hover:border-slate-700 transition-colors">
+    <Card className="p-4 hover:border-orange-500/50 transition-colors">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+        <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">
           {label}
         </span>
-        {badgeText && <Badge variant="sky">{badgeText}</Badge>}
+        {badgeText && <Badge variant="orange">{badgeText}</Badge>}
       </div>
       <div className="mt-2 flex items-baseline gap-2">
         <span className="text-2xl font-bold font-mono text-white">{value}</span>
-        {unit && <span className="text-xs text-slate-400 font-mono">{unit}</span>}
+        {unit && <span className="text-xs text-stone-400 font-mono">{unit}</span>}
       </div>
       <div className="mt-2 flex items-center justify-between text-xs">
         {changePct !== undefined && changePct !== null ? (

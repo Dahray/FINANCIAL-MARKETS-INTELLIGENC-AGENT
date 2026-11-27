@@ -46,31 +46,31 @@ class GmailDeliveryService:
         return f"""
 <!DOCTYPE html>
 <html>
-<body style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6; max-width: 780px; margin: 0 auto; padding: 20px;">
-  <div style="background-color: #0f172a; color: #ffffff; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-    <div style="font-size: 11px; color: #10b981; font-weight: bold; letter-spacing: 1px;">
+<body style="font-family: 'Segoe UI', Arial, sans-serif; color: #1c1917; line-height: 1.6; max-width: 780px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #c2410c; color: #ffffff; padding: 20px 24px; border-radius: 8px 8px 0 0; border-bottom: 4px solid #f97316;">
+    <div style="font-size: 11px; color: #ffedd5; font-weight: bold; letter-spacing: 1px;">
       SOHCAHTOA HOLDINGS LIMITED • INSTITUTIONAL FINANCIAL RESEARCH DESK
     </div>
-    <h2 style="margin: 6px 0 4px 0; font-size: 18px;">{title}</h2>
-    <div style="font-size: 12px; color: #94a3b8;">Report Code: {code} • Verified by Chief Research Editor (Agent 8)</div>
+    <h2 style="margin: 6px 0 4px 0; font-size: 18px; color: #ffffff;">{title}</h2>
+    <div style="font-size: 12px; color: #fed7aa;">Report Code: {code} • Verified by Chief Research Editor (Agent 8)</div>
   </div>
 
-  <div style="border: 1px solid #cbd5e1; border-top: none; padding: 24px; border-radius: 0 0 8px 8px;">
-    <h3 style="color: #064e3b; margin-top: 0;">1. Executive Summary</h3>
-    <p style="font-size: 13.5px; color: #1e293b;">{exec_sum}</p>
+  <div style="border: 1px solid #fed7aa; border-top: none; padding: 24px; border-radius: 0 0 8px 8px;">
+    <h3 style="color: #9a3412; margin-top: 0;">1. Executive Summary</h3>
+    <p style="font-size: 13.5px; color: #292524;">{exec_sum}</p>
 
-    <h3 style="color: #064e3b;">2. The Five Core Strategic Questions</h3>
+    <h3 style="color: #9a3412;">2. The Five Core Strategic Questions</h3>
     <p style="font-size: 13px;"><strong>Q1. Where is the financial market currently?</strong><br/>{five_q.get('q1_where_is_market_currently', '')}</p>
     <p style="font-size: 13px;"><strong>Q2. What is changing in the market?</strong><br/>{five_q.get('q2_what_is_changing_in_market', '')}</p>
     <p style="font-size: 13px;"><strong>Q3. Where are the emerging opportunities?</strong><br/>{five_q.get('q3_where_are_emerging_opportunities', '')}</p>
     <p style="font-size: 13px;"><strong>Q4. What are the risks and threats?</strong><br/>{five_q.get('q4_what_are_risks_and_threats', '')}</p>
-    <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 12px 16px; margin-top: 12px;">
-      <strong style="font-size: 13px; color: #065f46;">Q5. Strategic Actions for Management Consideration:</strong>
+    <div style="background-color: #fff7ed; border-left: 4px solid #ea580c; padding: 12px 16px; margin-top: 12px;">
+      <strong style="font-size: 13px; color: #9a3412;">Q5. Strategic Actions for Management Consideration:</strong>
       <ul style="font-size: 13px; margin: 8px 0 0 0; padding-left: 20px;">{actions_html}</ul>
     </div>
 
-    <p style="font-size: 12px; color: #64748b; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
-      Attached: (1) Complete 16-Section Institutional PDF Report ({code}.pdf) and (2) 8-Sheet Underlying Financial Data Workbook ({code}.xlsx).
+    <p style="font-size: 12px; color: #78716c; margin-top: 20px; border-top: 1px solid #fed7aa; padding-top: 12px;">
+      Attached: (1) Complete Institutional PDF Report with Verified Charts ({code}.pdf) and (2) 8-Sheet Underlying Financial Data Workbook ({code}.xlsx).
     </p>
   </div>
 </body>

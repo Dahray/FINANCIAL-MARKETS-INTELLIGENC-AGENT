@@ -39,6 +39,7 @@ next-env.d.ts
 # Generated reports & local data volumes
 storage/reports/pdf/*.pdf
 storage/reports/excel/*.xlsx
+storage/reports/charts/
 !storage/reports/pdf/.gitkeep
 !storage/reports/excel/.gitkeep
 storage/*.db

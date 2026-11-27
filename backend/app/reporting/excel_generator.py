@@ -21,20 +21,20 @@ from app.core.logging import get_logger
 logger = get_logger("fmip.reporting.excel")
 
 
-HEADER_FILL = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
-SUBHEADER_FILL = PatternFill(start_color="064E3B", end_color="064E3B", fill_type="solid")
-ALT_ROW_FILL = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+HEADER_FILL = PatternFill(start_color="C2410C", end_color="C2410C", fill_type="solid")
+SUBHEADER_FILL = PatternFill(start_color="EA580C", end_color="EA580C", fill_type="solid")
+ALT_ROW_FILL = PatternFill(start_color="FFF7ED", end_color="FFF7ED", fill_type="solid")
 
 HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-TITLE_FONT = Font(name="Calibri", size=14, bold=True, color="0F172A")
-BOLD_FONT = Font(name="Calibri", size=10, bold=True, color="0F172A")
-REGULAR_FONT = Font(name="Calibri", size=10, bold=False, color="1E293B")
+TITLE_FONT = Font(name="Calibri", size=14, bold=True, color="9A3412")
+BOLD_FONT = Font(name="Calibri", size=10, bold=True, color="1C1917")
+REGULAR_FONT = Font(name="Calibri", size=10, bold=False, color="292524")
 
 THIN_BORDER = Border(
-    left=Side(style="thin", color="CBD5E1"),
-    right=Side(style="thin", color="CBD5E1"),
-    top=Side(style="thin", color="CBD5E1"),
-    bottom=Side(style="thin", color="CBD5E1"),
+    left=Side(style="thin", color="FED7AA"),
+    right=Side(style="thin", color="FED7AA"),
+    top=Side(style="thin", color="FED7AA"),
+    bottom=Side(style="thin", color="FED7AA"),
 )
 
 
@@ -147,7 +147,7 @@ def generate_weekly_report_excel(
         ]
         for m in all_perf
     ]
-    _write_table_to_sheet(
+    next_r = _write_table_to_sheet(
         ws2,
         3,
         [
@@ -161,25 +161,65 @@ def generate_weekly_report_excel(
         ],
         perf_rows,
     )
+
+    # Global Stock Indices (WTD / MTD / YTD)
+    gl_eq = sections.get("section_03_global_market_performance", {}).get("global_equities_table", [])
+    if gl_eq:
+        ws2.cell(row=next_r, column=1, value="Selected Global Stock Market Indices (Live Verified EOD)").font = BOLD_FONT
+        next_r = _write_table_to_sheet(
+            ws2,
+            next_r + 1,
+            ["Symbol", "Index", "Country", "Price", "WTD (%)", "MTD (%)", "YTD (%)", "Technical Regime"],
+            [
+                [r.get("symbol"), r.get("name"), r.get("country_or_unit"), r.get("price"), r.get("wtd_pct"), r.get("mtd_pct"), r.get("ytd_pct"), r.get("technical_regime")]
+                for r in gl_eq
+            ],
+        )
+
+    # Major Currencies & Commodities
+    fx_tbl = sections.get("section_06_fx_market_analysis", {}).get("major_currencies_table", [])
+    if fx_tbl:
+        ws2.cell(row=next_r, column=1, value="Major Global & African Currencies").font = BOLD_FONT
+        next_r = _write_table_to_sheet(
+            ws2,
+            next_r + 1,
+            ["Pair", "Currency", "Country", "Price", "WTD (%)", "MTD (%)", "YTD (%)", "YoY (%)"],
+            [
+                [r.get("symbol"), r.get("name"), r.get("country_or_unit"), r.get("price"), r.get("wtd_pct"), r.get("mtd_pct"), r.get("ytd_pct"), r.get("yoy_pct")]
+                for r in fx_tbl
+            ],
+        )
+
+    cmd_tbl = sections.get("section_06_fx_market_analysis", {}).get("commodities_table", [])
+    if cmd_tbl:
+        ws2.cell(row=next_r, column=1, value="Global & Nigerian Commodity Benchmarks").font = BOLD_FONT
+        _write_table_to_sheet(
+            ws2,
+            next_r + 1,
+            ["Symbol", "Commodity", "Unit", "Price", "Daily (%)", "WTD (%)", "MTD (%)", "YTD (%)"],
+            [
+                [r.get("symbol"), r.get("name"), r.get("country_or_unit"), r.get("price"), r.get("daily_pct"), r.get("wtd_pct"), r.get("mtd_pct"), r.get("ytd_pct")]
+                for r in cmd_tbl
+            ],
+        )
     _auto_fit_columns(ws2)
 
     # --------------------------------------------------------------------------
     # Sheet 3: 03_Sovereign_Yield_Curve
     # --------------------------------------------------------------------------
     ws3 = wb.create_sheet("03_Sovereign_Yield_Curve")
-    ws3["A1"] = "FMDQ Nigerian Sovereign Yield Curve (Nelson-Siegel Fit & Fisher Real Yields)"
+    ws3["A1"] = "Nigerian Sovereign Yield Curve, Live CBN NTB/OMO Auctions & Global 10Y Bonds"
     ws3["A1"].font = TITLE_FONT
-    yc = sections.get("section_05_fixed_income_market_analysis", {}).get(
-        "yield_curve_analytics", {}
-    )
+    sec5 = sections.get("section_05_fixed_income_market_analysis", {})
+    yc = sec5.get("yield_curve_analytics", {})
     fitted = yc.get("fitted_standard_tenors", {})
     fisher = yc.get("real_yields_fisher_pct", {})
     simple = yc.get("simple_real_spreads_pct", {})
     yc_rows = [
-        [tenor, nom_val, fisher.get(tenor), simple.get(tenor), yc.get("inflation_benchmark_pct", 33.88)]
+        [tenor, nom_val, fisher.get(tenor), simple.get(tenor), yc.get("inflation_benchmark_pct")]
         for tenor, nom_val in fitted.items()
     ]
-    _write_table_to_sheet(
+    next_r3 = _write_table_to_sheet(
         ws3,
         3,
         [
@@ -191,6 +231,33 @@ def generate_weekly_report_excel(
         ],
         yc_rows,
     )
+
+    g10 = sec5.get("global_10y_bonds_table", [])
+    if g10:
+        ws3.cell(row=next_r3, column=1, value="Global 10-Year Sovereign Government Bond Yields (FRED / OECD Tier-1)").font = BOLD_FONT
+        next_r3 = _write_table_to_sheet(
+            ws3,
+            next_r3 + 1,
+            ["Country", "Yield (%)", "WTD (bps)", "MTD (bps)", "YTD (bps)", "YoY (bps)", "As Of"],
+            [
+                [r.get("country"), r.get("yield_pct"), r.get("wtd_bps"), r.get("mtd_bps"), r.get("ytd_bps"), r.get("yoy_bps"), r.get("as_of_date")]
+                for r in g10
+            ],
+        )
+
+    fi_auc = sec5.get("nigerian_fixed_income_auctions", {})
+    auc_rows = fi_auc.get("ntb_auctions", []) + fi_auc.get("omo_auctions", [])
+    if auc_rows:
+        ws3.cell(row=next_r3, column=1, value="Live Central Bank of Nigeria (CBN) NTB & OMO Primary Auctions").font = BOLD_FONT
+        _write_table_to_sheet(
+            ws3,
+            next_r3 + 1,
+            ["Instrument", "Tenor", "Stop Rate (%)", "Bid-to-Cover", "Auction Date", "Source"],
+            [
+                [a.get("instrument"), a.get("tenor"), a.get("stop_rate_pct"), a.get("bid_to_cover"), a.get("auction_date"), a.get("source_url")]
+                for a in auc_rows[:18]
+            ],
+        )
     _auto_fit_columns(ws3)
 
     # --------------------------------------------------------------------------

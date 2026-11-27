@@ -105,19 +105,19 @@ export function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-72 shrink-0 border-r border-slate-800/90 bg-slate-950/95 flex flex-col justify-between min-h-screen">
+    <aside className="w-72 shrink-0 border-r border-stone-800/90 bg-stone-950/95 flex flex-col justify-between min-h-screen">
       <div>
         {/* Brand Header */}
-        <div className="border-b border-slate-800/90 px-5 py-5">
+        <div className="border-b border-orange-500/30 px-5 py-5 bg-gradient-to-r from-orange-950/40 to-stone-950">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 font-bold font-mono">
-              FM
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-600 border border-orange-400/60 text-white font-bold font-mono shadow-sm shadow-orange-600/30">
+              SC
             </div>
             <div>
               <h1 className="text-sm font-bold tracking-wide text-white uppercase">
                 SohCahToa FMIP
               </h1>
-              <p className="text-[11px] text-emerald-400 font-mono">
+              <p className="text-[11px] text-orange-400 font-mono">
                 Institutional Intelligence Desk
               </p>
             </div>
@@ -137,18 +137,18 @@ export function SidebarNav() {
                 href={item.href}
                 className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-all ${
                   active
-                    ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                    : "text-slate-300 hover:bg-slate-900 hover:text-white border border-transparent"
+                    ? "bg-orange-500/15 text-orange-300 border border-orange-500/40 shadow-sm"
+                    : "text-stone-300 hover:bg-stone-900 hover:text-white border border-transparent"
                 }`}
               >
                 <Icon
                   className={`h-4 w-4 mt-0.5 shrink-0 ${
-                    active ? "text-emerald-400" : "text-slate-400"
+                    active ? "text-orange-400" : "text-stone-400"
                   }`}
                 />
                 <div>
                   <div className="text-xs font-semibold">{item.name}</div>
-                  <div className="text-[11px] text-slate-400">{item.subtitle}</div>
+                  <div className="text-[11px] text-stone-400">{item.subtitle}</div>
                 </div>
               </Link>
             );
@@ -157,17 +157,17 @@ export function SidebarNav() {
       </div>
 
       {/* Institutional Governance Footer */}
-      <div className="border-t border-slate-800/90 p-4 space-y-2.5 bg-slate-900/40">
-        <div className="flex items-center gap-2 text-xs text-emerald-400 font-medium">
+      <div className="border-t border-stone-800/90 p-4 space-y-2.5 bg-stone-900/50">
+        <div className="flex items-center gap-2 text-xs text-orange-400 font-medium">
           <ShieldCheck className="h-4 w-4 shrink-0" />
           <span>Chief Editor Quality Gate Active</span>
         </div>
-        <p className="text-[11px] text-slate-400 leading-relaxed">
+        <p className="text-[11px] text-stone-400 leading-relaxed">
           All numerical metrics are computed by Agent 6 (Python Quant Engine). Decision-support system only; no automated trade execution.
         </p>
-        <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-slate-500">
+        <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-stone-500">
           <span>RBAC: EXECUTIVE_ADMIN</span>
-          <Link href="/login" className="text-sky-400 hover:underline">
+          <Link href="/login" className="text-orange-400 hover:underline">
             Session
           </Link>
         </div>

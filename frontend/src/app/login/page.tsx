@@ -31,24 +31,24 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6">
-      <Card className="w-full max-w-md border-slate-800">
+    <div className="min-h-screen flex items-center justify-center bg-stone-950 p-6">
+      <Card className="w-full max-w-md border-orange-500/40">
         <CardHeader className="space-y-2">
           <div className="flex items-center justify-between">
-            <Badge variant="emerald">RBAC INSTITUTIONAL AUTH</Badge>
-            <span className="font-mono text-xs text-slate-400">JWT / PBKDF2-SHA256</span>
+            <Badge variant="orange">SOHCAHTOA INSTITUTIONAL AUTH</Badge>
+            <span className="font-mono text-xs text-stone-400">JWT / PBKDF2-SHA256</span>
           </div>
           <CardTitle className="text-lg">
             SohCahToa Financial Markets Intelligence Platform
           </CardTitle>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-stone-400">
             Sign in to access Nigerian, African & Global Financial Intelligence, Opportunity Radar, and Friday Executive Reports.
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-stone-300 mb-1">
                 Institutional Email
               </label>
               <input
@@ -56,11 +56,11 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-lg border border-stone-700 bg-stone-900 px-3 py-2 text-sm text-white focus:border-orange-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-stone-300 mb-1">
                 Password
               </label>
               <input
@@ -68,7 +68,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-lg border border-stone-700 bg-stone-900 px-3 py-2 text-sm text-white focus:border-orange-500 focus:outline-none"
               />
             </div>
 
@@ -81,21 +81,21 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 px-4 py-2.5 text-sm font-semibold text-white transition-colors shadow-sm shadow-orange-600/30"
             >
               <Lock className="h-4 w-4" />
               {loading ? "Authenticating..." : "Sign In to Research Terminal"}
             </button>
 
-            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <div className="pt-2 border-t border-stone-800/80 flex items-center justify-between text-xs text-stone-400">
               <span className="flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                <ShieldCheck className="h-4 w-4 text-orange-400" />
                 Audit Logging Enabled
               </span>
               <button
                 type="button"
                 onClick={() => router.push("/overview")}
-                className="text-sky-400 hover:underline"
+                className="text-orange-400 hover:underline"
               >
                 Continue to Dashboard →
               </button>

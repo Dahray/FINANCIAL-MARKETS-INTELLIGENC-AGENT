@@ -25,8 +25,17 @@ class ReportService:
     """Orchestrates weekly report synthesis, PDF/Excel file generation, cloud archiving, and email delivery."""
 
     @staticmethod
-    def ensure_report_artifacts(db: Session, report: WeeklyReport) -> WeeklyReport:
-        """Ensure both PDF and Excel files exist on disk for `report` and update database paths."""
+    def ensure_report_artifacts(
+        db: Session,
+        report: WeeklyReport,
+        chart_series_payload: Optional[Dict[str, Any]] = None,
+    ) -> WeeklyReport:
+        """Ensure both PDF (with verified Matplotlib charts) and Excel files exist on disk."""
+        if chart_series_payload is None:
+            from app.services.institutional_research_analytics import InstitutionalMarketResearchAssembler
+
+            chart_series_payload = InstitutionalMarketResearchAssembler._build_chart_series_payload(db)
+
         report_payload: Dict[str, Any] = {
             "report_code": report.report_code,
             "title": report.title,
@@ -35,6 +44,7 @@ class ReportService:
             "executive_summary": report.executive_summary,
             "five_strategic_questions": report.five_strategic_questions_json,
             "sections": report.sections_json,
+            "chart_series_payload": chart_series_payload,
         }
 
         pdf_path = generate_weekly_report_pdf(report_payload)
