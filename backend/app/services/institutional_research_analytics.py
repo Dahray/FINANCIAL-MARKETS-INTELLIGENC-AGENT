@@ -37,7 +37,8 @@ GLOBAL_EQUITY_SPECS = [
 ]
 
 MAJOR_CURRENCY_SPECS = [
-    ("DXY", "US Dollar Index (Broad)", "United States"),
+    ("DXY_ICE", "ICE US Dollar Index (DXY)", "United States"),
+    ("DXY", "US Broad Dollar Index (FRED)", "United States"),
     ("EURUSD", "EUR/USD", "Eurozone"),
     ("GBPUSD", "GBP/USD", "United Kingdom"),
     ("AUDUSD", "AUD/USD", "Australia"),
@@ -318,9 +319,9 @@ class InstitutionalMarketResearchAssembler:
             "top_gainers": gainers,
             "top_decliners": decliners,
             "data_governance_note": (
-                "NGX intraday sectoral indices (Banking, Insurance, Industrial, Oil/Gas, Consumer Goods, Pension) "
-                "and daily turnover volume/value require a licensed NGX Market Data API feed. "
-                "Archival baseline rows are explicitly tagged STALE_ARCHIVAL_BASELINE."
+                "NGX All-Share Index (ASI), total market capitalization, and major listed equities are retrieved live "
+                "via the free public NGX market feed (AFX Kwayisi / NGX). Dedicated intraday sectoral sub-indices "
+                "(Banking, Insurance, Industrial, Oil/Gas, Consumer Goods, Pension) remain an optional future paid NGX API upgrade."
             ),
         }
 

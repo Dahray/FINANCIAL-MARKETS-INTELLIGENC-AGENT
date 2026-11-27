@@ -29,6 +29,7 @@ from app.providers.global_markets.global_providers import (
     AlphaVantageDataProvider,
     FMPDataProvider,
     FREDDataProvider,
+    YahooFinanceFreeProvider,
 )
 from app.providers.nigerian.nigerian_providers import (
     CBNDataProvider,
@@ -158,6 +159,14 @@ APPROVED_SOURCES_CATALOG: List[Dict[str, str]] = [
         "country": "NIGERIA",
         "base_url": "https://nairametrics.com",
         "reliability_tier": "TIER_3_FINANCIAL_PRESS",
+    },
+    {
+        "code": "YAHOO_FINANCE_FREE",
+        "name": "Yahoo Finance Public Market Feed (DAX, Bovespa, JSE, DXY)",
+        "category": "MARKET_DATA_API",
+        "country": "GLOBAL",
+        "base_url": "https://finance.yahoo.com",
+        "reliability_tier": "TIER_2_INSTITUTIONAL",
     },
 ]
 
@@ -731,6 +740,7 @@ class IngestionService:
         fmdq = FMDQDMODataProvider()
         reg_monitor = NigerianRegulatorsMonitorProvider()
         fmp = FMPDataProvider()
+        yf_free = YahooFinanceFreeProvider()
         av = AlphaVantageDataProvider()
         fred = FREDDataProvider()
         tavily = TavilySearchProvider()
@@ -742,6 +752,7 @@ class IngestionService:
         market_pts.extend(ngx.fetch_market_timeseries())
         market_pts.extend(fmdq.fetch_market_timeseries())
         market_pts.extend(fmp.fetch_market_timeseries(symbol_tier=active_tier))
+        market_pts.extend(yf_free.fetch_market_timeseries())
         market_pts.extend(av.fetch_market_timeseries(quota_tier=active_tier))
         market_pts.extend(fred.fetch_market_timeseries(history_limit=fred_limit))
 

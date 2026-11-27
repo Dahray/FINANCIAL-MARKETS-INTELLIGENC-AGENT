@@ -620,47 +620,204 @@ class NGXDataProvider(BaseMarketDataProvider):
     provider_name = "Nigerian Exchange Group (NGX)"
     reliability_tier = "TIER_1_OFFICIAL"
 
+    AFX_NGX_URL = "https://afx.kwayisi.org/ngx/"
+
+    # Normalize AFX short tickers to FMIP standard *.NG symbols
+    TICKER_ALIAS_MAP: Dict[str, str] = {
+        "GTCO": "GTCO.NG",
+        "ZENITHBA": "ZENITHBANK.NG",
+        "ZENITHBANK": "ZENITHBANK.NG",
+        "DANGCEM": "DANGCEM.NG",
+        "MTNN": "MTNN.NG",
+        "SEPLAT": "SEPLAT.NG",
+        "ACCESSCORP": "ACCESSCORP.NG",
+        "ACCESS": "ACCESSCORP.NG",
+        "UBA": "UBA.NG",
+        "BUAFOODS": "BUAFOODS.NG",
+        "OANDO": "OANDO.NG",
+        "TRANSPOWER": "TRANSPOWER.NG",
+        "ARADEL": "ARADEL.NG",
+        "FBNH": "FBNH.NG",
+        "FIRSTHOLDCO": "FBNH.NG",
+        "GEREGU": "GEREGU.NG",
+        "NB": "NB.NG",
+        "NESTLE": "NESTLE.NG",
+        "WAPCO": "WAPCO.NG",
+        "STANBIC": "STANBIC.NG",
+        "FIDELITYBK": "FIDELITYBK.NG",
+    }
+
     def fetch_market_timeseries(
         self, symbols: Optional[List[str]] = None
     ) -> List[IngestedMarketPoint]:
-        """Attempt live NGX market snapshot ingestion from ngxgroup.com."""
+        """
+        Fetch live Nigerian Exchange (NGX) All-Share Index (ASI), Market Cap, Top Gainers,
+        Top Decliners, and major listed equities with closing prices and daily volume.
+        Probes official ngxgroup.com first, then uses the free public NGX market feed
+        (`afx.kwayisi.org/ngx/`) when ngxgroup.com renders SPA tables dynamically.
+        """
         points: List[IngestedMarketPoint] = []
         now_utc = datetime.now(timezone.utc)
+        got_asi = False
+
         try:
             with create_http_client(
                 timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
                 headers=_http_headers(),
                 follow_redirects=True,
             ) as client:
-                resp = client.get(settings.NGX_BASE_URL)
-                if resp.status_code == 200 and resp.text:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    text_blob = soup.get_text(" ", strip=True)
-                    asi_match = re.search(
-                        r"All[- ]Share\s+Index[^0-9]{0,25}([\d,]+\.\d{2})",
-                        text_blob,
-                        re.IGNORECASE,
-                    )
-                    if asi_match:
-                        asi_val = float(asi_match.group(1).replace(",", ""))
-                        if asi_val > 10_000:
-                            points.append(
-                                IngestedMarketPoint(
-                                    symbol="NGXASI",
-                                    indicator_name="NGX All-Share Index (ASI)",
-                                    asset_class="INDEX",
-                                    market_region="NIGERIA",
-                                    value=asi_val,
-                                    close_value=asi_val,
-                                    currency_or_unit="INDEX_POINTS",
-                                    reporting_period=now_utc.strftime("%Y-%m-%d"),
-                                    publication_date=now_utc,
-                                    source_code=self.provider_code,
-                                    source_url=settings.NGX_BASE_URL,
-                                    data_frequency="DAILY",
-                                    verification_status="VERIFIED",
+                # 1. Primary probe on ngxgroup.com
+                try:
+                    resp = client.get(settings.NGX_BASE_URL)
+                    if resp.status_code == 200 and resp.text:
+                        soup = BeautifulSoup(resp.text, "html.parser")
+                        text_blob = soup.get_text(" ", strip=True)
+                        asi_match = re.search(
+                            r"All[- ]Share\s+Index[^0-9]{0,25}([\d,]+\.\d{2})",
+                            text_blob,
+                            re.IGNORECASE,
+                        )
+                        if asi_match:
+                            asi_val = float(asi_match.group(1).replace(",", ""))
+                            if asi_val > 10_000:
+                                got_asi = True
+                                points.append(
+                                    IngestedMarketPoint(
+                                        symbol="NGXASI",
+                                        indicator_name="NGX All-Share Index (ASI)",
+                                        asset_class="INDEX",
+                                        market_region="NIGERIA",
+                                        value=asi_val,
+                                        close_value=asi_val,
+                                        currency_or_unit="INDEX_POINTS",
+                                        reporting_period=now_utc.strftime("%Y-%m-%d"),
+                                        publication_date=now_utc,
+                                        effective_date=now_utc,
+                                        source_code=self.provider_code,
+                                        source_url=settings.NGX_BASE_URL,
+                                        source_tier="TIER_1_OFFICIAL",
+                                        confidence_score=99.0,
+                                        is_archival_baseline=False,
+                                        data_frequency="DAILY",
+                                        verification_status="VERIFIED",
+                                    )
                                 )
-                            )
+                except Exception as ngx_exc:
+                    logger.info("NGX primary homepage probe note: %s", ngx_exc)
+
+                # 2. Free live NGX market table feed (AFX Kwayisi NGX Live)
+                # Note: AFX uses valid HTML5 with omitted </td>/</tr> closing tags, so we parse
+                # table chunks directly with regex rather than Python's strict html.parser nesting.
+                try:
+                    afx_resp = client.get(self.AFX_NGX_URL)
+                    if afx_resp.status_code == 200 and afx_resp.text:
+                        html_text = afx_resp.text
+                        raw_tables = re.findall(
+                            r"<table\b[^>]*>(.*?)</table>",
+                            html_text,
+                            flags=re.IGNORECASE | re.DOTALL,
+                        )
+
+                        def _extract_html5_rows(tbl_html: str) -> List[List[str]]:
+                            rows_out: List[List[str]] = []
+                            for raw_tr in re.split(r"<tr\b[^>]*>", tbl_html, flags=re.IGNORECASE)[1:]:
+                                raw_cells = re.split(r"<t[dh]\b[^>]*>", raw_tr, flags=re.IGNORECASE)[1:]
+                                cleaned = [
+                                    re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c)).strip()
+                                    for c in raw_cells
+                                ]
+                                if cleaned:
+                                    rows_out.append(cleaned)
+                            return rows_out
+
+                        # Table 0: ASI Index, YTD, Market Cap
+                        if raw_tables and not got_asi:
+                            t0_rows = _extract_html5_rows(raw_tables[0])
+                            if len(t0_rows) >= 2:
+                                cells = t0_rows[1]
+                                if cells:
+                                    m_asi = re.search(r"([\d,]+\.\d{2})", cells[0])
+                                    m_cap = re.search(r"([\d,]+\.\d{2})", cells[2]) if len(cells) >= 3 else None
+                                    if m_asi:
+                                        asi_val = float(m_asi.group(1).replace(",", ""))
+                                        mcap_tn = float(m_cap.group(1).replace(",", "")) if m_cap else None
+                                        if asi_val > 10_000:
+                                            got_asi = True
+                                            points.append(
+                                                IngestedMarketPoint(
+                                                    symbol="NGXASI",
+                                                    indicator_name="NGX All-Share Index (ASI) — Live Market Feed",
+                                                    asset_class="INDEX",
+                                                    market_region="NIGERIA",
+                                                    value=asi_val,
+                                                    close_value=asi_val,
+                                                    market_cap=mcap_tn * 1e12 if mcap_tn else None,
+                                                    currency_or_unit="INDEX_POINTS",
+                                                    reporting_period=now_utc.strftime("%Y-%m-%d"),
+                                                    publication_date=now_utc,
+                                                    effective_date=now_utc,
+                                                    source_code=self.provider_code,
+                                                    source_url=self.AFX_NGX_URL,
+                                                    source_tier="TIER_2_INSTITUTIONAL",
+                                                    confidence_score=92.0,
+                                                    is_archival_baseline=False,
+                                                    data_frequency="DAILY",
+                                                    verification_status="VERIFIED",
+                                                )
+                                            )
+
+                        # Full listed equities table (typically Table 3 with 50+ rows): Ticker, Name, Volume, Price, Change
+                        equity_tbl = None
+                        for tbl_html in raw_tables:
+                            parsed_rows = _extract_html5_rows(tbl_html)
+                            if len(parsed_rows) >= 20 and len(parsed_rows[1]) >= 5:
+                                equity_tbl = parsed_rows[1:]
+                                break
+
+                        if equity_tbl:
+                            seen_syms = set()
+                            for tds in equity_tbl:
+                                if len(tds) < 5:
+                                    continue
+                                raw_tkr = tds[0].upper().strip()
+                                name = tds[1].strip()
+                                vol = _safe_float(tds[2])
+                                px = _safe_float(tds[3])
+                                chg = _safe_float(tds[4])
+                                if px is None or px <= 0:
+                                    continue
+                                db_sym = self.TICKER_ALIAS_MAP.get(raw_tkr)
+                                if not db_sym and (chg is not None and abs(chg) / max(px, 0.01) >= 0.08):
+                                    db_sym = f"{raw_tkr}.NG"
+                                if not db_sym or db_sym in seen_syms:
+                                    continue
+                                seen_syms.add(db_sym)
+                                open_px = round(px - chg, 4) if (chg is not None and px - chg > 0) else None
+                                points.append(
+                                    IngestedMarketPoint(
+                                        symbol=db_sym,
+                                        indicator_name=f"{name} (NGX Live)",
+                                        asset_class="EQUITY",
+                                        market_region="NIGERIA",
+                                        value=round(px, 4),
+                                        open_value=open_px,
+                                        close_value=round(px, 4),
+                                        volume=vol,
+                                        currency_or_unit="NGN",
+                                        reporting_period=now_utc.strftime("%Y-%m-%d"),
+                                        publication_date=now_utc,
+                                        effective_date=now_utc,
+                                        source_code=self.provider_code,
+                                        source_url=self.AFX_NGX_URL,
+                                        source_tier="TIER_2_INSTITUTIONAL",
+                                        confidence_score=90.0,
+                                        is_archival_baseline=False,
+                                        data_frequency="DAILY",
+                                        verification_status="VERIFIED",
+                                    )
+                                )
+                except Exception as afx_exc:
+                    logger.info("AFX NGX live feed note: %s", afx_exc)
         except Exception as exc:
             logger.info("NGX live snapshot fetch note: %s", exc)
         return points

@@ -630,3 +630,94 @@ class FREDDataProvider(BaseMacroDataProvider, BaseMarketDataProvider):
                 )
         return points
 
+
+class YahooFinanceFreeProvider(BaseMarketDataProvider):
+    """
+    Zero-key public Yahoo Finance Chart JSON adapter for global indices and DXY that
+    return HTTP 402 on FMP's free tier (Germany DAX, Brazil Bovespa, South Africa JSE,
+    and ICE US Dollar Index DXY). Delivers ~250 daily closing sessions with zero API cost.
+    """
+
+    provider_code = "YAHOO_FINANCE_FREE"
+    provider_name = "Yahoo Finance Public Market Feed"
+    reliability_tier = "TIER_2_INSTITUTIONAL"
+    CHART_BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
+
+    FREE_GLOBAL_SYMBOLS: List[Tuple[str, str, str, str, str, str]] = [
+        ("^GDAXI", "DAX", "Germany DAX Index", "INDEX", "GLOBAL", "INDEX_POINTS"),
+        ("^BVSP", "BOVESPA", "Brazil Bovespa Index", "INDEX", "GLOBAL", "INDEX_POINTS"),
+        ("^J203.JO", "JSE", "Johannesburg Stock Exchange All-Share Index", "INDEX", "AFRICA", "INDEX_POINTS"),
+        ("DX-Y.NYB", "DXY_ICE", "ICE US Dollar Index (DXY)", "FX", "GLOBAL", "INDEX"),
+    ]
+
+    def fetch_market_timeseries(
+        self,
+        symbols: Optional[List[str]] = None,
+        history_range: str = "1y",
+    ) -> List[IngestedMarketPoint]:
+        points: List[IngestedMarketPoint] = []
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+            )
+        }
+        target = self.FREE_GLOBAL_SYMBOLS
+        if symbols:
+            target = [t for t in self.FREE_GLOBAL_SYMBOLS if t[0] in symbols or t[1] in symbols]
+
+        try:
+            with create_http_client(
+                timeout=settings.DATA_PROVIDER_TIMEOUT_SECONDS,
+                headers=headers,
+                follow_redirects=True,
+            ) as client:
+                for yf_sym, db_sym, name, asset_cls, region, unit in target:
+                    try:
+                        resp = client.get(
+                            f"{self.CHART_BASE_URL}/{yf_sym}",
+                            params={"range": history_range, "interval": "1d"},
+                        )
+                        if resp.status_code != 200:
+                            continue
+                        res_list = resp.json().get("chart", {}).get("result") or []
+                        if not res_list:
+                            continue
+                        res0 = res_list[0]
+                        timestamps = res0.get("timestamp") or []
+                        quote = (res0.get("indicators", {}).get("quote") or [{}])[0]
+                        closes = quote.get("close") or []
+                        volumes = quote.get("volume") or []
+                        for idx, (ts, px) in enumerate(zip(timestamps, closes)):
+                            if px is None or px <= 0:
+                                continue
+                            dt = datetime.fromtimestamp(int(ts), tz=timezone.utc)
+                            vol = volumes[idx] if idx < len(volumes) else None
+                            points.append(
+                                IngestedMarketPoint(
+                                    symbol=db_sym,
+                                    indicator_name=name,
+                                    asset_class=asset_cls,
+                                    market_region=region,
+                                    value=round(float(px), 4),
+                                    close_value=round(float(px), 4),
+                                    volume=float(vol) if vol is not None else None,
+                                    currency_or_unit=unit,
+                                    reporting_period=dt.strftime("%Y-%m-%d"),
+                                    publication_date=dt,
+                                    effective_date=dt,
+                                    source_code=self.provider_code,
+                                    source_url=f"https://finance.yahoo.com/quote/{yf_sym}",
+                                    source_tier="TIER_2_INSTITUTIONAL",
+                                    confidence_score=91.0,
+                                    is_archival_baseline=False,
+                                    data_frequency="DAILY",
+                                    verification_status="VERIFIED",
+                                )
+                            )
+                    except Exception as sym_exc:
+                        logger.info("YahooFinanceFreeProvider note for %s: %s", yf_sym, sym_exc)
+        except Exception as exc:
+            logger.warning("YahooFinanceFreeProvider error: %s", exc)
+        return points
+

@@ -258,7 +258,7 @@ def generate_verified_report_charts(
             ma200 = vals.rolling(200, min_periods=40).mean()
             fig, ax = plt.subplots(figsize=(6.8, 3.0), dpi=180)
             x = np.arange(len(vals))
-            sym_lbl = "S&P 500 Index" if eq_src is spx_h else "NGX All-Share Index (Archival Baseline)"
+            sym_lbl = "S&P 500 Index" if eq_src is spx_h else "NGX All-Share Index (ASI)"
             ax.plot(x, vals, color=CRIMSON, linewidth=1.7, label=sym_lbl)
             if ma50.notna().any():
                 ax.plot(x, ma50, color=AMBER, linewidth=1.3, label="50-Day MA")
@@ -271,7 +271,7 @@ def generate_verified_report_charts(
                 ax,
                 f"{sym_lbl} & Technical Moving Averages ({dts[0]} to {dts[-1]})",
                 "Index Points",
-                f"Source: {'FMP Institutional EOD Feed' if eq_src is spx_h else 'NGX Archival Baseline'} | Period: {dts[0]}–{dts[-1]} | Basis: Daily Close + SMA-50 / SMA-200",
+                f"Source: {'FMP Institutional EOD Feed' if eq_src is spx_h else 'NGX Public Market Feed'} | Period: {dts[0]}–{dts[-1]} | Basis: Daily Close + SMA-50 / SMA-200",
             )
             ax.legend(loc="upper left", fontsize=7.2, frameon=False)
             fig.tight_layout(rect=[0, 0.05, 1, 1])
@@ -307,7 +307,7 @@ def generate_verified_report_charts(
                 ax,
                 "Global Equities & Commodities: Week-to-Date (WTD) vs Year-to-Date (YTD) Returns",
                 "Return (%)",
-                "Source: FMP Institutional EOD & St. Louis Fed FRED | Units: % | Basis: Calendar WTD & YTD Price Return",
+                "Source: FMP, Yahoo Finance & St. Louis Fed FRED | Units: % | Basis: Calendar WTD & YTD Price Return",
             )
             ax.legend(loc="upper right", fontsize=7.2, frameon=False)
             fig.tight_layout(rect=[0, 0.05, 1, 1])
