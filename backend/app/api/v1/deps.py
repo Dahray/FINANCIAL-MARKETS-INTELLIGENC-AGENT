@@ -49,6 +49,8 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User account not found or inactive.",
         )
+    # Record JWT-scoped role claim so down-scoped tokens can never escalate privileges
+    setattr(user, "_token_role", payload.get("role"))
     return user
 
 
@@ -56,7 +58,10 @@ def require_roles(allowed_roles: Sequence[str]) -> Callable[[User], User]:
     """Dependency factory enforcing Role-Based Access Control (RBAC)."""
 
     def _role_checker(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role not in allowed_roles:
+        token_role = getattr(current_user, "_token_role", None)
+        if current_user.role not in allowed_roles or (
+            token_role is not None and token_role not in allowed_roles
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Insufficient permissions. Required roles: {list(allowed_roles)}.",

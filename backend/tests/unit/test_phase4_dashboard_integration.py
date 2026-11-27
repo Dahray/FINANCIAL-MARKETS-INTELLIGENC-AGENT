@@ -97,7 +97,7 @@ def test_frontend_to_backend_api_contracts() -> None:
         # Page 7: Research Reports & Searchable Archive
         r_rpt = client.get("/api/v1/reports/latest")
         assert r_rpt.status_code == 200
-        assert len(r_rpt.json()["sections"]) == 16
+        assert len(r_rpt.json()["sections"]) >= 16
 
         r_arch = client.get("/api/v1/reports/archive/search?q=CBN")
         assert r_arch.status_code == 200

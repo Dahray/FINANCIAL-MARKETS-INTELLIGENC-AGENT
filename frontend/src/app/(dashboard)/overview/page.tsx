@@ -375,122 +375,130 @@ export default function OverviewPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge variant="emerald">{activeDev.domain}</Badge>
-                <Badge variant="sky">{activeDev.market_region}</Badge>
-                <span className="font-mono text-xs text-slate-400">
-                  Date: {activeDev.event_date}
-                </span>
-              </div>
-              <h4 className="mt-1.5 text-base font-bold text-white">
-                {activeDev.headline}
-              </h4>
+          {!activeDev ? (
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-6 text-center text-xs text-slate-400">
+              Loading verified 11-question significant market developments from live institutional intelligence memory...
             </div>
-            <div className="text-right">
-              <span className="text-xs text-slate-400">Significance Score</span>
-              <div className="text-xl font-bold font-mono text-emerald-400">
-                {activeDev.significance_score}/100
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="emerald">{activeDev.domain}</Badge>
+                    <Badge variant="sky">{activeDev.market_region}</Badge>
+                    <span className="font-mono text-xs text-slate-400">
+                      Date: {activeDev.event_date}
+                    </span>
+                  </div>
+                  <h4 className="mt-1.5 text-base font-bold text-white">
+                    {activeDev.headline}
+                  </h4>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-slate-400">Significance Score</span>
+                  <div className="text-xl font-bold font-mono text-emerald-400">
+                    {activeDev.significance_score}/100
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* 11-Question Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-sky-400 mb-1">1. What Happened?</div>
-              <p className="text-slate-300 leading-relaxed">{activeDev.q1_what_happened}</p>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-sky-400 mb-1">2. Why Did It Happen?</div>
-              <p className="text-slate-300 leading-relaxed">{activeDev.q2_why_it_happened}</p>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-sky-400 mb-1">3. What Caused It (Root Cause)?</div>
-              <p className="text-slate-300 leading-relaxed">{activeDev.q3_what_caused_it}</p>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-amber-400 mb-1">4. Why Is It Significant?</div>
-              <p className="text-slate-300 leading-relaxed">{activeDev.q4_why_significant}</p>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-emerald-400 mb-1">5. Who Benefits?</div>
-              <ul className="list-disc list-inside space-y-1 text-slate-300">
-                {activeDev.q5_who_benefits.map((b, i) => (
-                  <li key={i}>{b}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-rose-400 mb-1">6. Who Loses?</div>
-              <ul className="list-disc list-inside space-y-1 text-slate-300">
-                {activeDev.q6_who_loses.map((l, i) => (
-                  <li key={i}>{l}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-purple-400 mb-1">7. Immediate Implications (0–30d)</div>
-              <p className="text-slate-300 leading-relaxed">{activeDev.q7_immediate_implications}</p>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-purple-400 mb-1">8. Long-Term Implications (3–24m)</div>
-              <p className="text-slate-300 leading-relaxed">{activeDev.q8_long_term_implications}</p>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-emerald-400 mb-1">9. Opportunities Created</div>
-              <p className="text-slate-300 leading-relaxed">{activeDev.q9_opportunities_created}</p>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="font-bold text-rose-400 mb-1">10. Risks Introduced</div>
-              <p className="text-slate-300 leading-relaxed">{activeDev.q10_risks_introduced}</p>
-            </div>
-            <div className="md:col-span-2 rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-3">
-              <div className="font-bold text-emerald-300 mb-1">
-                11. What Should Management Consider Doing?
+              {/* 11-Question Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-sky-400 mb-1">1. What Happened?</div>
+                  <p className="text-slate-300 leading-relaxed">{activeDev.q1_what_happened}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-sky-400 mb-1">2. Why Did It Happen?</div>
+                  <p className="text-slate-300 leading-relaxed">{activeDev.q2_why_it_happened}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-sky-400 mb-1">3. What Caused It (Root Cause)?</div>
+                  <p className="text-slate-300 leading-relaxed">{activeDev.q3_what_caused_it}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-amber-400 mb-1">4. Why Is It Significant?</div>
+                  <p className="text-slate-300 leading-relaxed">{activeDev.q4_why_significant}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-emerald-400 mb-1">5. Who Benefits?</div>
+                  <ul className="list-disc list-inside space-y-1 text-slate-300">
+                    {(activeDev.q5_who_benefits || []).map((b, i) => (
+                      <li key={i}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-rose-400 mb-1">6. Who Loses?</div>
+                  <ul className="list-disc list-inside space-y-1 text-slate-300">
+                    {(activeDev.q6_who_loses || []).map((l, i) => (
+                      <li key={i}>{l}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-purple-400 mb-1">7. Immediate Implications (0–30d)</div>
+                  <p className="text-slate-300 leading-relaxed">{activeDev.q7_immediate_implications}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-purple-400 mb-1">8. Long-Term Implications (3–24m)</div>
+                  <p className="text-slate-300 leading-relaxed">{activeDev.q8_long_term_implications}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-emerald-400 mb-1">9. Opportunities Created</div>
+                  <p className="text-slate-300 leading-relaxed">{activeDev.q9_opportunities_created}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-bold text-rose-400 mb-1">10. Risks Introduced</div>
+                  <p className="text-slate-300 leading-relaxed">{activeDev.q10_risks_introduced}</p>
+                </div>
+                <div className="md:col-span-2 rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-3">
+                  <div className="font-bold text-emerald-300 mb-1">
+                    11. What Should Management Consider Doing?
+                  </div>
+                  <p className="text-slate-200 leading-relaxed">
+                    {activeDev.q11_management_considerations}
+                  </p>
+                </div>
               </div>
-              <p className="text-slate-200 leading-relaxed">
-                {activeDev.q11_management_considerations}
-              </p>
-            </div>
-          </div>
 
-          {/* Epistemic Distinction Bar (Facts vs Estimates vs Opinions vs AI Interpretations) */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t border-slate-800 text-xs">
-            <div className="rounded bg-slate-950 p-2.5 border border-slate-800">
-              <Badge variant="emerald" className="mb-1.5">VERIFIED FACTS</Badge>
-              <ul className="space-y-1 text-slate-300">
-                {activeDev.epistemic_breakdown.facts.map((f, i) => (
-                  <li key={i}>• {f}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded bg-slate-950 p-2.5 border border-slate-800">
-              <Badge variant="sky" className="mb-1.5">QUANT ESTIMATES</Badge>
-              <ul className="space-y-1 text-slate-300">
-                {activeDev.epistemic_breakdown.estimates.map((e, i) => (
-                  <li key={i}>• {e}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded bg-slate-950 p-2.5 border border-slate-800">
-              <Badge variant="amber" className="mb-1.5">MARKET OPINIONS</Badge>
-              <ul className="space-y-1 text-slate-300">
-                {activeDev.epistemic_breakdown.opinions.map((o, i) => (
-                  <li key={i}>• {o}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded bg-slate-950 p-2.5 border border-slate-800">
-              <Badge variant="purple" className="mb-1.5">AI INTERPRETATIONS</Badge>
-              <ul className="space-y-1 text-slate-300">
-                {activeDev.epistemic_breakdown.ai_interpretations.map((ai, i) => (
-                  <li key={i}>• {ai}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
+              {/* Epistemic Distinction Bar (Facts vs Estimates vs Opinions vs AI Interpretations) */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t border-slate-800 text-xs">
+                <div className="rounded bg-slate-950 p-2.5 border border-slate-800">
+                  <Badge variant="emerald" className="mb-1.5">VERIFIED FACTS</Badge>
+                  <ul className="space-y-1 text-slate-300">
+                    {(activeDev.epistemic_breakdown?.facts || []).map((f, i) => (
+                      <li key={i}>• {f}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded bg-slate-950 p-2.5 border border-slate-800">
+                  <Badge variant="sky" className="mb-1.5">QUANT ESTIMATES</Badge>
+                  <ul className="space-y-1 text-slate-300">
+                    {(activeDev.epistemic_breakdown?.estimates || []).map((e, i) => (
+                      <li key={i}>• {e}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded bg-slate-950 p-2.5 border border-slate-800">
+                  <Badge variant="amber" className="mb-1.5">MARKET OPINIONS</Badge>
+                  <ul className="space-y-1 text-slate-300">
+                    {(activeDev.epistemic_breakdown?.opinions || []).map((o, i) => (
+                      <li key={i}>• {o}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded bg-slate-950 p-2.5 border border-slate-800">
+                  <Badge variant="purple" className="mb-1.5">AI INTERPRETATIONS</Badge>
+                  <ul className="space-y-1 text-slate-300">
+                    {(activeDev.epistemic_breakdown?.ai_interpretations || []).map((ai, i) => (
+                      <li key={i}>• {ai}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -507,40 +515,42 @@ export default function OverviewPage() {
             </Link>
           </CardHeader>
           <CardContent className="space-y-3">
-            {[
-              {
-                title:
-                  "Sovereign Barbell Strategy: 364-Day NTB Carry (22.85%) + Tactical 10Y FGN Bond Duration (20.30%)",
-                category: "ATTRACTIVE_FIXED_INCOME_YIELD",
-                line: "ASSET_MANAGEMENT",
-                score: 93.8,
-                horizon: "SHORT_TERM_0_6M",
-              },
-              {
-                title:
-                  "Launch Institutional & HNI High-Yield Treasury & CP Liquidity Fund + B2B2C Fintech Sweep API",
-                category: "NEW_FINANCIAL_PRODUCT",
-                line: "ASSET_MANAGEMENT / FINTECH",
-                score: 92.7,
-                horizon: "SHORT_TERM_0_6M",
-              },
-              {
-                title:
-                  "Tier-1 Nigerian Financial HoldCos (GTCO at 3.0x P/E & Zenith Bank at 2.15x P/E) Deep DCF Discount",
-                category: "UNDERVALUED_EQUITY",
-                line: "INSTITUTIONAL_INVESTMENT",
-                score: 90.9,
-                horizon: "MEDIUM_TERM_6_18M",
-              },
-              {
-                title:
-                  "Dedicated Commercial Paper (CP) Origination & Mid-Market Recapitalisation M&A Advisory Desk",
-                category: "REGULATORY_OPPORTUNITY",
-                line: "INVESTMENT_BANKING",
-                score: 90.3,
-                horizon: "SHORT_TERM_0_6M",
-              },
-            ].map((opp, i) => (
+            {(data?.top_opportunities?.length > 0
+              ? data.top_opportunities
+              : [
+                  {
+                    title: `Sovereign Fixed-Income Carry & Duration Barbell (Live CBN MPR ${fmtNum(mprInfo?.value, 2, "%")}, 364D NTB ${fmtNum(fitted["1Y"], 2, "%")})`,
+                    category: "ATTRACTIVE_FIXED_INCOME_YIELD",
+                    target_business_line: "ASSET_MANAGEMENT",
+                    ranking_score: 93.8,
+                    time_horizon: "SHORT_TERM_0_6M",
+                  },
+                  {
+                    title:
+                      "Launch Institutional & HNI High-Yield Treasury & CP Liquidity Fund + B2B2C Fintech Sweep API",
+                    category: "NEW_FINANCIAL_PRODUCT",
+                    target_business_line: "ASSET_MANAGEMENT / FINTECH",
+                    ranking_score: 92.7,
+                    time_horizon: "SHORT_TERM_0_6M",
+                  },
+                  {
+                    title:
+                      "Tier-1 Nigerian Financial HoldCos Recapitalisation & Valuation Arbitrage Screen",
+                    category: "UNDERVALUED_EQUITY",
+                    target_business_line: "INSTITUTIONAL_INVESTMENT",
+                    ranking_score: 90.9,
+                    time_horizon: "MEDIUM_TERM_6_18M",
+                  },
+                  {
+                    title:
+                      "Dedicated Commercial Paper (CP) Origination & Mid-Market Recapitalisation M&A Advisory Desk",
+                    category: "REGULATORY_OPPORTUNITY",
+                    target_business_line: "INVESTMENT_BANKING",
+                    ranking_score: 90.3,
+                    time_horizon: "SHORT_TERM_0_6M",
+                  },
+                ]
+            ).slice(0, 4).map((opp: any, i: number) => (
               <div
                 key={i}
                 className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-950/60 p-3"
@@ -549,7 +559,7 @@ export default function OverviewPage() {
                   <div className="flex items-center gap-2">
                     <Badge variant="emerald">{opp.category}</Badge>
                     <span className="text-[11px] font-mono text-slate-400">
-                      {opp.line} • {opp.horizon}
+                      {opp.target_business_line || opp.line} • {opp.time_horizon || opp.horizon}
                     </span>
                   </div>
                   <div className="mt-1 text-xs font-semibold text-white">
@@ -558,7 +568,7 @@ export default function OverviewPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-base font-bold font-mono text-emerald-400">
-                    {opp.score.toFixed(1)}
+                    {Number(opp.ranking_score ?? opp.score ?? 0).toFixed(1)}
                   </div>
                   <div className="text-[10px] text-slate-400 uppercase">Rank Score</div>
                 </div>
@@ -584,10 +594,10 @@ export default function OverviewPage() {
             <div className="rounded bg-slate-950 p-3 border border-slate-800 space-y-1.5">
               <div className="font-semibold text-amber-400 flex items-center gap-1.5">
                 <AlertTriangle className="h-3.5 w-3.5" />
-                Contradiction Reconciled by Editor:
+                Live Source-of-Truth Verification:
               </div>
               <p className="text-slate-300 leading-relaxed">
-                Reconciled fixed-income duration tension between Agent 2 (hawkish 27.50% MPR) and Agent 3 (10Y Bond convexity): enforced a 70% short-duration 364D NTB / 30% 10Y FGN Bond barbell.
+                Enforced Tier-1 CBN Official API grounding (MPR {fmtNum(mprInfo?.value, 2, "%")}, CPI {fmtNum(cpiInfo?.value, 2, "%")}, NFEM {fmtNum(fxInfo?.value, 2)} NGN/USD) and reconciled duration positioning between short-dated NTB carry ({fmtNum(fitted["1Y"], 2, "%")}) and long-dated FGN bond convexity.
               </p>
             </div>
             <div className="rounded bg-slate-950 p-3 border border-slate-800 space-y-1.5">
@@ -595,7 +605,7 @@ export default function OverviewPage() {
                 Evidence Quality Gate Action:
               </div>
               <p className="text-slate-300 leading-relaxed">
-                Withheld recommendation on unhedged Mid-Cap FMCG Turnaround Basket (Evidence Score 48/100 &lt; 65 threshold) due to incomplete audited FX forward liability schedules.
+                Archival baseline records without live Tier-1 exchange feeds are explicitly flagged (`STALE_ARCHIVAL_BASELINE`) and withheld from high-conviction execution calls until verified.
               </p>
             </div>
           </CardContent>

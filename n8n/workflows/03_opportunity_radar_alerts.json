@@ -16,18 +16,21 @@
       "name": "Daily 17:00 WAT Opportunity Scan",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [220, 300]
+      "position": [
+        220,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://backend:8000/api/v1/webhooks/n8n/opportunity-alerts",
+        "url": "={{ $env.FMIP_BACKEND_URL || 'http://host.docker.internal:8000' }}/api/v1/webhooks/n8n/opportunity-alerts",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-N8N-Webhook-Secret",
-              "value": "={{ $env.N8N_WEBHOOK_SHARED_SECRET }}"
+              "value": "={{ $env.N8N_WEBHOOK_SHARED_SECRET || '' }}"
             }
           ]
         },
@@ -39,7 +42,10 @@
       "name": "Evaluate High-Conviction Opportunities (>= Threshold)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 300]
+      "position": [
+        520,
+        300
+      ]
     }
   ],
   "connections": {

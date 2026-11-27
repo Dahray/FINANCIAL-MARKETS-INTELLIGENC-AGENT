@@ -35,9 +35,9 @@ def test_eight_agent_research_cycle_and_16_section_report() -> None:
         ):
             assert q_key in five_q and five_q[q_key]
 
-        # Verify all 16 mandatory Weekly Report sections exist
+        # Verify all 16 mandatory Weekly Report sections exist (plus v2.0 section_00 change-tracking diff)
         sections = data["sections"]
-        assert len(sections) == 16
+        assert len(sections) >= 16, f"Expected >= 16 sections, got {len(sections)}"
         expected_sections = [
             "section_01_executive_summary",
             "section_02_nigerian_financial_market_performance",

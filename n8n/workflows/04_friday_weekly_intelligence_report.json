@@ -16,18 +16,21 @@
       "name": "Every Friday 16:30 WAT (After NGX & FMDQ Close)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [220, 300]
+      "position": [
+        220,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://backend:8000/api/v1/webhooks/n8n/friday-weekly-report",
+        "url": "={{ $env.FMIP_BACKEND_URL || 'http://host.docker.internal:8000' }}/api/v1/webhooks/n8n/friday-weekly-report",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-N8N-Webhook-Secret",
-              "value": "={{ $env.N8N_WEBHOOK_SHARED_SECRET }}"
+              "value": "={{ $env.N8N_WEBHOOK_SHARED_SECRET || '' }}"
             }
           ]
         },
@@ -39,7 +42,10 @@
       "name": "Run 8 Agents -> Generate PDF & Excel -> Archive to Drive -> Send Gmail",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [560, 300]
+      "position": [
+        560,
+        300
+      ]
     }
   ],
   "connections": {

@@ -144,7 +144,12 @@ services:
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-fmip_n8n_password}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-fmip_default_encryption_key_change_me}
+      N8N_WEBHOOK_SHARED_SECRET: ${N8N_WEBHOOK_SHARED_SECRET:-fmip-n8n-shared-secret}
+      FMIP_BACKEND_URL: ${FMIP_BACKEND_URL:-http://host.docker.internal:8000}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       WEBHOOK_URL: http://localhost:5678/
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${N8N_PORT:-5678}:5678"
     volumes:
